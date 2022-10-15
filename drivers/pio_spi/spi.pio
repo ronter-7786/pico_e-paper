@@ -1,0 +1,65 @@
+;	*** derived from:
+; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program spi_chan0
+; Pin assignments:
+; - SCK is SET pin
+; - MOSI is OUT pin
+; - MISO is IN pin
+;
+;	CPHA=0... Rising edge clock latch
+.wrap_target
+    out pins, 1		; shift 1 bit of the OSR out MOSI
+	set pins, 1		; raise SCK
+    in pins, 1		; shift the MISO into ISR
+	set pins, 0		; lower SCK
+.wrap
+
+.program spi_chan1
+; Pin assignments:
+; - SCK is SET pin
+; - MOSI is OUT pin
+; - MISO is IN pin
+;
+;	CPHA=0... Rising edge clock latch
+.wrap_target
+    out pins, 1		; shift 1 bit of the OSR out MOSI
+	set pins, 1		; raise SCK
+    in pins, 1		; shift the MISO into ISR
+	set pins, 0		; lower SCK
+.wrap
+
+
+% c-sdk {
+#include "hardware/gpio.h"
+static inline void pio_spi_init(PIO pio, uint sm, uint prog_offs, uint n_bits, float clkdiv, bool cpha, bool cpol, uint pin_sck, uint pin_mosi, uint pin_miso) 
+{
+    pio_sm_config c = ( sm == 0 )? spi_chan0_program_get_default_config(prog_offs) : spi_chan1_program_get_default_config(prog_offs);
+	sm_config_set_set_pins(&c, pin_sck, 1);
+    sm_config_set_out_pins(&c, pin_mosi, 1);
+    sm_config_set_in_pins(&c, pin_miso);
+    sm_config_set_out_shift(&c, false, true, n_bits);
+    sm_config_set_in_shift(&c, false, true, n_bits);
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    // MOSI, SCK output are low, MISO is input
+    pio_sm_set_pins_with_mask(pio, sm, 0, (1u << pin_sck) | (1u << pin_mosi));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+    pio_gpio_init(pio, pin_mosi);
+    pio_gpio_init(pio, pin_miso);
+    pio_gpio_init(pio, pin_sck);
+
+    // The pin muxes can be configured to invert the output (among other things
+    // and this is a cheesy way to get CPOL=1
+    gpio_set_outover(pin_sck, cpol ? GPIO_OVERRIDE_INVERT : GPIO_OVERRIDE_NORMAL);
+    // SPI is synchronous, so bypass input synchroniser to reduce input delay.
+    hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
+
+    pio_sm_init(pio, sm, prog_offs, &c);
+    // pio_sm_set_enabled(pio, sm, true);
+}
+%}
+
