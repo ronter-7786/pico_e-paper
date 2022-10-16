@@ -6,6 +6,9 @@ target_sources ( pico_bike PRIVATE
   pico_bike.c
 )
 
+target_compile_definitions(pico_bike PRIVATE DEMO_MODE )
+
+
 # Pull in libraries that we need
 target_link_libraries( pico_bike PRIVATE
         pico_multicore

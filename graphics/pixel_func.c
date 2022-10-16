@@ -1,4 +1,4 @@
-#include "pico_bike.h"
+#include "pixel_func.h"
 
 
 ///////////////////
@@ -53,7 +53,7 @@ bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_
 	return true;
 }
 
-bool draw_char( DISPLAY_PARAMS *pDisplayParams, uint8_t _char, uint16_t _x, uint16_t _y, COLOR_INDEX _bgColor, COLOR_INDEX _fgColor )
+bool draw_char( DISPLAY_PARAMS *pDisplayParams, char _char, uint16_t _x, uint16_t _y, COLOR_INDEX _bgColor, COLOR_INDEX _fgColor )
 {
 	FONT_DESC	*_pFontDesc = pDisplayParams->pFontDesc;
 	uint8_t		*_pFontMap = _pFontDesc->pBitmap;		
@@ -100,7 +100,7 @@ bool draw_char( DISPLAY_PARAMS *pDisplayParams, uint8_t _char, uint16_t _x, uint
 
 
 
-bool draw_string( DISPLAY_PARAMS *pDisplayParams, uint8_t *_pString, uint16_t _x, uint16_t _y,COLOR_INDEX _bgColor, COLOR_INDEX _fgColor )
+bool draw_string( DISPLAY_PARAMS *pDisplayParams, char *_pString, uint16_t _x, uint16_t _y,COLOR_INDEX _bgColor, COLOR_INDEX _fgColor )
 {
 	FONT_DESC	*_pFontDesc = pDisplayParams->pFontDesc;
 

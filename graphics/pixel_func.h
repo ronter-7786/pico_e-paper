@@ -65,7 +65,7 @@ extern FONT_DESC	font_8x16_desc;
 extern FONT_DESC	font_7seg_24x48_desc;
 
 extern bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_INDEX _pixelColor );
-extern bool draw_char( DISPLAY_PARAMS *pDisplayParams, uint8_t _char, uint16_t _x, uint16_t _y, COLOR_INDEX _bgColor, COLOR_INDEX _fgColor );
-extern bool draw_string( DISPLAY_PARAMS *pDisplayParams , uint8_t *_pString, uint16_t _x, uint16_t _y,  COLOR_INDEX _bgColor, COLOR_INDEX _fgColor );
+extern bool draw_char( DISPLAY_PARAMS *pDisplayParams, char _char, uint16_t _x, uint16_t _y, COLOR_INDEX _bgColor, COLOR_INDEX _fgColor );
+extern bool draw_string( DISPLAY_PARAMS *pDisplayParams , char *_pString, uint16_t _x, uint16_t _y,  COLOR_INDEX _bgColor, COLOR_INDEX _fgColor );
 extern void clear_frameBuffer(DISPLAY_PARAMS *pDisplayParams, COLOR_INDEX _colorIndex );
 
