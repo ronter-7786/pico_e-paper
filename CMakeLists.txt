@@ -31,6 +31,6 @@ function(add_resource target file)
 endfunction(add_resource)
 
 add_subdirectory(drivers)
-add_subdirectory(utilities)
+add_subdirectory(graphics)
 add_subdirectory(examples)
 

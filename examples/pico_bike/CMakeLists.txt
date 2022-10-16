@@ -1,6 +1,6 @@
 # cmake file for pico_e-paper example  pico_bike
 
-add_executable(pico_bike ../../utilities/font_7seg_24x48.c)
+add_executable(pico_bike )
 
 target_sources ( pico_bike PRIVATE
   pico_bike.c
@@ -19,7 +19,7 @@ target_link_libraries( pico_bike PRIVATE
 		hardware_dma
 		pio_spi
 		uc8151d
-		utilities
+		graphics
  )
 
  target_include_directories(pico_bike  PRIVATE 
