@@ -68,7 +68,8 @@ static bool timer_callback(repeating_timer_t *rt);
 int main()
 {
 	double				_fSpeed = 0,
-						_fDistance = 0,
+						_fDistance_km = 0,
+						_fDistance_mm = 0,
 						_fDisplayedSpeed = 99.99,
 						_fDisplayedDistance = 999.99;
 
@@ -154,7 +155,7 @@ int main()
 			_deltaTime = absolute_time_diff_us ( _start_time_us, _current_time_us );
 			if ( _deltaTime > (int64_t)(10*1000*1000) )
 			{
-				add_repeating_timer_ms( 125, timer_callback, NULL, &_wheelRevTimerID );
+				add_repeating_timer_ms( 125, timer_callback, NULL, &_wheelRevTimerID );	// ~ 20 km/h
 				_lastWheelRevTime = _current_time_us;
 				_bDemoMode = true;
 			}
@@ -167,14 +168,14 @@ int main()
 			_iWheelRevTime_us = absolute_time_diff_us ( _lastWheelRevTime, _current_time_us );
 			_fWheel_mm_perSecond = (_fWheelCircum_mm / _iWheelRevTime_us ) * 1000000.0f;
 			_fSpeed = ( _fWheel_mm_perSecond * ( 60.0f * 60.0f )) / ( 1000.0f * 1000.0f );		// km/h
-			_fDistance += ( _fWheelCircum_mm / 1000.0f ) / 1000.0f;	// translate mm to Km
+			_fDistance_mm += _fWheelCircum_mm ;	
 			_lastWheelRevTime = _current_time_us;
 		}
 
 		// see if event to update display
 		if ( sem_try_acquire( &updateRequest ) )
 		{
-			_bNeedRefresh = false;		// assume we won't need to refresh
+			_fDistance_km = _fDistance_mm / 1000000.0f;
 
 			// Display the screen
 			switch ( _displayWhat )
@@ -194,7 +195,7 @@ int main()
 				break;
 
 			case DISPLAY_SUMMARY_SCREEN:
-				if ( ( (_fDistance - _fDisplayedDistance) > 0.1f ) || ( _displayedElapsedTime_min != _elapsedTime_min )	)	// do we need to update display now?
+				if ( ( (_fDistance_km - _fDisplayedDistance) > 0.1f ) || ( _displayedElapsedTime_min != _elapsedTime_min )	)	// do we need to update display now?
 				{
 					mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
@@ -202,12 +203,12 @@ int main()
 					pDisplayParams->magn = 4;
 					sprintf(strTime, "%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min );
 					draw_string(pDisplayParams,strTime, 0, 0, WHITE,BLACK);
-					sprintf(strDistance, "%-4.1f%s", _fDistance, strKm );
+					sprintf(strDistance, "%-4.1f%s", _fDistance_km, strKm );
 					draw_string(pDisplayParams,strDistance, 0, 64, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);					// free the frame buffer
 					sem_release(&displayRefreshRequest);			// request a refresh by core1
 					_displayedElapsedTime_min = _elapsedTime_min;
-					_fDisplayedDistance = _fDistance;
+					_fDisplayedDistance = _fDistance_km;
 				}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
@@ -239,7 +240,7 @@ int main()
 				}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 2000UL, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms( 2000, alarm_callback, NULL, true );  // update in 2 seconds
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
 				if ( _deltaTime < (int64_t)(30*1000*1000) )	 _displayWhat = DISPLAY_CURRENT_SPEED;		// has this been displayed for 30 seconds?
 				else 
@@ -251,24 +252,24 @@ int main()
 				break;
 
 			case DISPLAY_TOTAL_DISTANCE_SCREEN:		// display total distance
-				if (  fabs( _fDistance - _fDisplayedDistance ) >= .1 )
+				if (  fabs( _fDistance_km - _fDisplayedDistance ) >= .1 )
 				{
 					mutex_enter_blocking(&frameBufferMutex);			// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 48 x 96 font
 					pDisplayParams->magn = 2;
-					sprintf(strDistance, "%5.1f", _fDistance );
+					sprintf(strDistance, "%5.1f", _fDistance_km );
 					draw_string(pDisplayParams,strDistance, 0, 0,WHITE,BLACK);	// display the value
 					pDisplayParams->pFontDesc = &font_8x16_desc;		// 16 x 32 font
 					pDisplayParams->magn = 2;
 					draw_string(pDisplayParams,(char *)strKm,160,96,WHITE,BLACK);	// display the units
 					mutex_exit(&frameBufferMutex);						// free the frame buffer
 					sem_release(&displayRefreshRequest);				// request a refresh by core1
-					_fDisplayedDistance = _fDistance;					// update last displayed distance
+					_fDisplayedDistance = _fDistance_km;					// update last displayed distance
 				}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 2000UL, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms( 2000, alarm_callback, NULL, true );  // update in 2 seconds
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
 				if ( _deltaTime < (int64_t)(10*1000*1000) )	 _displayWhat = DISPLAY_TOTAL_DISTANCE_SCREEN;		// has this been displayed for 10 seconds?
 				else 
@@ -294,7 +295,7 @@ int main()
 				}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 2000UL, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms( 2000, alarm_callback, NULL, true );  // update in 2 seconds
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
 				if ( _deltaTime < (int64_t)(10*1000*1000) )	 _displayWhat = DISPLAY_ELAPSED_TIME_SCREEN;		// has this been displayed for 10 seconds?
 				else 

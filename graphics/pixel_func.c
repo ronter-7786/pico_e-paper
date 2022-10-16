@@ -119,7 +119,7 @@ void clear_frameBuffer( DISPLAY_PARAMS *pDisplayParams, COLOR_INDEX _colorIndex 
 
 	if ( pDisplayParams->pixelDepth == 1 )
 	{
-		memset ( _pFB, pDisplayParams->pColorMap[_colorIndex] ,( ( pDisplayParams->width/8) * pDisplayParams->height) );
+		memset( _pFB, pDisplayParams->pColorMap[_colorIndex] ,( ( pDisplayParams->width/8) * pDisplayParams->height) );
 	}
 	else if ( pDisplayParams->pixelDepth == 16 )
 	{
