@@ -11,7 +11,7 @@ typedef struct
 				MaxChar;
 	uint8_t		Height;
 	uint8_t		Width;
-	uint8_t		*pBitmap;
+	uint8_t	   *pBitmap;
 }FONT_DESC;
 
 
@@ -62,7 +62,7 @@ typedef struct
 #define SYMBOL_8x8_SHIELD	2
 
 extern FONT_DESC	font_8x16_desc;
-extern FONT_DESC	symbol_8x8_desc;
+extern FONT_DESC	font_7seg_24x48_desc;
 
 extern bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_INDEX _pixelColor );
 extern bool draw_char( DISPLAY_PARAMS *pDisplayParams, uint8_t _char, uint16_t _x, uint16_t _y, COLOR_INDEX _bgColor, COLOR_INDEX _fgColor );

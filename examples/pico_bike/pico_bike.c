@@ -1,3 +1,10 @@
+/********************************************************/
+/*														*/
+/* pico-bike:											*/
+/*    Display current speed, distance travelled, and	*/
+/*			elapsed time on e-paper display				*/
+/*														*/
+/********************************************************/
 
 #include "pico_bike.h"
 
@@ -6,23 +13,24 @@
 // Local defines
 /////////////////////
 
-#define UPDATE_INTERVAL_MS	2000		// 2 second update
+#define UPDATE_INTERVAL_MS	2000		// every 2 seconds update display
 
 /////////////////////
 // Local variables
 /////////////////////
 
-static uint8_t			strSpeed[8];
+static uint8_t			strSpeed[8];				// strings for the spped, distance & time
 static uint8_t			strDistance[8];
 static uint8_t			strTime[8];
 
-static const uint8_t	strKm[] = "km";
+static const uint8_t	strKm[] = "km";				// units labels
 static const uint8_t	strKph[] = "km/h";
 
 static mutex_t			frameBufferMutex;			// mutex to lock frame buffer
 static semaphore_t		displayRefreshRequest;		// semaphore to request frame refresh
 static semaphore_t		updateRequest;				// semaphore to trigger re-calculation of spped/distance
 
+// this selects the display we will use
 static DISPLAY_PARAMS	*pDisplayParams = &UC8151DDisplayParams;
 
 /////////////////////
@@ -118,7 +126,7 @@ int main()
 			case 1:		// display total distance
 				_fDisplayedDistance = 9999.99;
 			case 2:		// gets a double time
-				if (  round(_fDisplayedDistance) == round(_fDistance) )
+				if (  fabs( _fDistance - _fDisplayedDistance ) < .1 )
 				{
 					_pstrValue = NULL;
 				}
@@ -150,6 +158,7 @@ int main()
 			// bump to next item to display, wrap @ 8
 			if ( ++_displayWhat > 8 ) _displayWhat = 0;
 
+
 			/////////////////////////////////////////////////////////////
 			// test only... make up some numbers for next iteration
 			/////////////////////////////////////////////////////////////
@@ -162,8 +171,8 @@ int main()
 				// create the new image & request refresh
 				mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
 				clear_frameBuffer(pDisplayParams,WHITE);		
-				pDisplayParams->pFontDesc = &font_8x16_desc;	// 48 x 96 font
-				pDisplayParams->magn = 6;
+				pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 48 x 96 font
+				pDisplayParams->magn = 2;
 				draw_string(pDisplayParams,_pstrValue,0,0,WHITE,BLACK);	// display the value
 				if(_pstrUnits != NULL)
 				{

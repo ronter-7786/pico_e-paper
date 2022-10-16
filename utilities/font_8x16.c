@@ -9,7 +9,7 @@
 #define FONT_WIDTH			8
 #define FONT_NUM_CHARS		128
 
-static uint8_t  font_8x16_bitmap[FONT_NUM_CHARS*FONT_HEIGHT*(FONT_WIDTH/8)] = 
+static const uint8_t  font_8x16_bitmap[FONT_NUM_CHARS*FONT_HEIGHT*(FONT_WIDTH/8)] = 
 {
 	/* 0 0x00 '^@' */
 
@@ -2324,5 +2324,5 @@ FONT_DESC	font_8x16_desc =
 	.MaxChar = FONT_NUM_CHARS - 1,
 	.Height = FONT_HEIGHT,
 	.Width = FONT_WIDTH,
-	.pBitmap = &font_8x16_bitmap[0]
+	.pBitmap = (uint8_t *)&font_8x16_bitmap[0]
 };

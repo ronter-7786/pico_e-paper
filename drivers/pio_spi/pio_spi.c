@@ -50,6 +50,7 @@ static SPI_CHANNEL	spi1Channel =
 	.gpio_cs_pin = PICO_NO_PIN,
 };
 
+// indicates whether or not a pio-spi channel has been initialized
 static bool			pioSpiInitialized[MAX_SPI_CHANNELS];
 
 
@@ -58,7 +59,7 @@ static bool			pioSpiInitialized[MAX_SPI_CHANNELS];
 // Global variables
 ///////////////////
 
-SPI_CHANNEL			*pSpiChannelDescript[MAX_SPI_CHANNELS] = { &spi0Channel, &spi1Channel };
+SPI_CHANNEL			*pSpiChannelDescript[MAX_SPI_CHANNELS] = { &spi0Channel, &spi1Channel };		// global pointers to pio-spi channels
 
 /////////////////////////////
 // Local function prototypes
@@ -83,7 +84,7 @@ bool init_pio_spi(uint8_t _channel_index )
 	if(_channel_desc == NULL) return false;
 	if( pioSpiInitialized[_channel_index] ) return true;		// already initialized
 
-	// create a semaphore to indicate transfer done
+	// create a semaphore to indicate when transfers are done
 	sem_init ( &_channel_desc->doneSemaphore, 0, 1 );			// create binary semaphore
 
 	fBaud = sysClock;
@@ -185,6 +186,7 @@ bool start_pio_spi(uint8_t _channel_index )
 	irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
     irq_set_enabled(DMA_IRQ_0, true);
 
+	// see if we should assert CS before transfer
 	if ( _channel_desc->chipSelect & SPI_CHIP_SELECT_ASSERT )  
 	{
 		gpio_put(_channel_desc->gpio_cs_pin,false);		// activate CS
@@ -211,11 +213,13 @@ static void  __no_inline_not_in_flash_func(dma_isr0)(void)
 	SPI_CHANNEL			*_channel_desc = pSpiChannelDescript[ ( _ints0 & (1 << pSpiChannelDescript[0]->dmaChanNumMISO) ) ? 0 : 1 ];
 
 	// use MISO b/c we will always receive at least as many bytes as transmitted
-
 	hw_set_bits( &dma_hw->ints0, (1 << _channel_desc->dmaChanNumMISO) );		// clear the dma int
 	hw_clear_bits( &dma_hw->inte0, (1 <<_channel_desc->dmaChanNumMISO));		// disable further dma int for this chan
 
+	// see if we should de-assert CS when transfer is complete
 	if ( _channel_desc->chipSelect & SPI_CHIP_SELECT_DEASSERT )  gpio_put(_channel_desc->gpio_cs_pin,true );		// deactivate CS
+
+	// let someone know we're done
 	sem_release(  &_channel_desc->doneSemaphore );								// set 'done' semaphore
 }
 

@@ -66,7 +66,7 @@ bool draw_char( DISPLAY_PARAMS *pDisplayParams, uint8_t _char, uint16_t _x, uint
 
 	_char -= _pFontDesc->MinChar;
 
-	_pFontMap += _char * _pFontDesc->Height;	
+	_pFontMap += _char * ( _pFontDesc->Width /8) *_pFontDesc->Height;	
 
 	for ( uint16_t __y = 0; __y < _pFontDesc->Height; __y++ )
 	{
