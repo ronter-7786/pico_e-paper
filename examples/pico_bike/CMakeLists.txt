@@ -7,6 +7,7 @@ target_sources ( pico_bike PRIVATE
 )
 
 target_compile_definitions(pico_bike PRIVATE DEMO_MODE )
+target_compile_definitions(pico_bike PRIVATE WHEEL_CIRCUMFERENCE_MM=700 )
 
 
 # Pull in libraries that we need
@@ -17,6 +18,7 @@ target_link_libraries( pico_bike PRIVATE
 		hardware_pio
 		hardware_rtc
 		hardware_dma
+		hardware_adc
 		pio_spi
 		uc8151d
 		graphics

@@ -1,3 +1,10 @@
+/********************************************************************
+*
+*   Functions to draw on the framebuffer 
+*
+*
+***********************************************************************/
+
 #include "pixel_func.h"
 
 
@@ -18,14 +25,14 @@ bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_
 	uint32_t	_pixelPosn;
 
 
-	if ( pDisplayParams->flags & DISPLAY_FLAG_MIRROR )
+	if ((_x >= pDisplayParams->width) || (_y >= pDisplayParams->height))  return false;
+
+
+	if ( pDisplayParams->flags & DISPLAY_FLAG_ROTATE_180 )
 	{
 		_x =  pDisplayParams->width - 1 - _x;
 		_y =  pDisplayParams->height - 1 - _y;
 	}
-
-	if ((_x >= pDisplayParams->width) || (_y >= pDisplayParams->height))  return false;
-
 	
 	if ( pDisplayParams->pixelDepth == 1 )
 	{

@@ -115,6 +115,9 @@ bool init_pio_spi(uint8_t _channel_index )
 	channel_config_set_write_increment(&_channel_desc->dmaChanConfigMiso,true);
 	channel_config_set_dreq(&_channel_desc->dmaChanConfigMiso, pio_get_dreq(_channel_desc->spi_HW->pio, _channel_desc->spi_HW->sm, false) );
 
+	irq_add_shared_handler(DMA_IRQ_0, dma_isr0, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
+	//irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
+
     // start the PIO
 	pio_sm_set_enabled(_pio_spi->pio, _pio_spi->sm, true);
 
@@ -136,8 +139,10 @@ void deinit_pio_spi(uint8_t _channel_index)
 
     // stop the PIO
 	pio_sm_set_enabled(_pio_spi->pio, _pio_spi->sm, false);
-
 	pio_remove_program( _pio_spi->pio, _pio_spi->pPIOprogram, _pio_spi->offset );
+
+	// remove the DMA irq
+	irq_remove_handler( DMA_IRQ_0, dma_isr0 );
 
 	pioSpiInitialized[_channel_index] = false;				// mark this spi not initialized
 
@@ -183,7 +188,7 @@ bool start_pio_spi(uint8_t _channel_index )
 	dma_channel_configure( _channel_desc->dmaChanNumMOSI, &_channel_desc->dmaChanConfigMosi, txfifo, (void *)_channel_desc->txBuffer, _channel_desc->rxBufferSize, false );
 	dma_channel_configure( _channel_desc->dmaChanNumMISO, &_channel_desc->dmaChanConfigMiso, (void *)_channel_desc->rxBuffer, rxfifo,  _channel_desc->rxBufferSize, false );
 	dma_channel_set_irq0_enabled( _channel_desc->dmaChanNumMISO, true);
-	irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
+	//irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
     irq_set_enabled(DMA_IRQ_0, true);
 
 	// see if we should assert CS before transfer

@@ -16,7 +16,7 @@ target_sources ( uc8151d  INTERFACE
 # 0 = slow..	4500 mS   very "blinky" during refresh
 # 1 = medium..	2000 mS		"
 # 2 = fast..	 800 mS		"
-# 3 = turbo..	 250 mS   not blinky, but leaves ghosts ( mitigated by whitewash before refresh )
+# 3 = turbo..	 250 mS   not as blinky, but leaves ghosts ( mitigated by whitewash before refresh )
 
 target_compile_definitions(uc8151d INTERFACE LUT_SPEED=3 )
 

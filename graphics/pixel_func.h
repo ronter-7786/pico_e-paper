@@ -48,20 +48,15 @@ typedef struct
 	bool		(*isBusyDisplay)(uint8_t _channel);
 	bool		(*powerDisplay)(uint8_t _channel, bool _power);
 	uint32_t	frameBufferSize;
-	uint8_t		magn;
-	uint8_t		pixelDepth;
 	uint16_t	height,				// frame dimensions in pixels
 				width;
-	uint8_t		flags;
+	uint8_t		magn;				// font magnification
+	uint8_t		pixelDepth;			// color info
+	uint8_t		flags;				// rotate/mirror  see below
 }DISPLAY_PARAMS;
 
-
-#define DISPLAY_FLAG_MIRROR			0x01	// flip the display
+#define DISPLAY_FLAG_ROTATE_180		0x01	// flip the display 180 deg
 #define DISPLAY_FLAG_ROTATE_90		0x02	// display rotates 90 deg
-
-#define SYMBOL_8x8_ZONE		0
-#define SYMBOL_8x8_GUN		1
-#define SYMBOL_8x8_SHIELD	2
 
 extern FONT_DESC	font_8x16_desc;
 extern FONT_DESC	font_7seg_24x48_desc;

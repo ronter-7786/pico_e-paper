@@ -31,7 +31,7 @@
 #define UC8151D_BUSY_PIN				26			// Busy on GPIO 26
 #define UC8151D_RESET_PIN				21			// Reset on GPIO 21
 
-#ifndef __NDEBUG
+#ifndef NDEBUG
 #define UC8151D_SPI_BAUD				1000000		// clock speed of SPI bus
 #else
 #define UC8151D_SPI_BAUD				10000000	// clock speed of SPI bus

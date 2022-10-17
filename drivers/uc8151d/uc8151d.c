@@ -1,9 +1,12 @@
+
+/********************************************************************
+*
+*   Driver for  UC8151D e-paper Controller
+*
+*
+***********************************************************************/
+
 #include "uc8151d.h"
-
-/************************************************/
-/*  Definitions for UC8151D e-paper Controller	*/
-/************************************************/
-
 
 /************************/
 /*	Local Variables		*/
@@ -246,7 +249,7 @@ static const UC8151D_CMD	UC8151DCommandRefreshDisplaySuffix[] =
 static uint8_t		uc8151dCommandBuffer[64];
 
 static uint8_t		uc8151dFrameBuffer[UC8151D_FRAME_BUFFER_SIZE];
-static uint8_t		junkBuffer[UC8151D_FRAME_BUFFER_SIZE];		// a dumpster for SPI Rx data... always 0
+static uint8_t		junkBuffer[UC8151D_FRAME_BUFFER_SIZE];		// a dumpster for SPI Rx data or for pre white-wash cycle.  MISO hardware always writes 0s over it
 
 static uint16_t		uc8151dColourTable[16] =
 {
@@ -373,7 +376,7 @@ static bool uc8151d_refresh( uint8_t _spiIndex  )
 	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
 
 #if ( LUT_SPEED == 3 )	
-	// send the whitewash
+	// since this refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
 	memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
@@ -399,8 +402,6 @@ static bool uc8151d_refresh( uint8_t _spiIndex  )
 	start_pio_spi(_spiIndex);
 	// send the suffix
 	return (send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]));
-	uc8151d_busyWait(_spiIndex);
-
 }	
 
 /////////////////////////////////////

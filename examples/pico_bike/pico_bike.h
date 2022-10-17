@@ -31,6 +31,7 @@
 #include <hardware/watchdog.h>
 #include <hardware/resets.h>
 #include <hardware/rtc.h>
+#include <hardware/adc.h>
 #include <hardware/clocks.h>
 #include <hardware/structs/clocks.h>
 #include <hardware/flash.h>
@@ -47,6 +48,8 @@
 #define SPI1_TX_PIN				11					// spi1 tx ( MOSI )
 #define SPI1_RX_PIN				12					// spi1 rx ( MISO )
 #define PICO_LED_PIN			25					// this turns LED on/off
+
+#define WHEEL_REV_PIN			27					// trigger for wheel revolution
 
 #define PICO_FLASH_SIZE			PICO_FLASH_SIZE_BYTES		// 2 MB Flash
 #define PICO_FLASH_START		XIP_BASE					// 0x10000000
