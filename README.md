@@ -7,21 +7,22 @@ In the CMakeLists.txt files for the drivers and examples are target_compile_defi
 
 ### drivers/uc8151d
 LUT SPEED for UC8151D
- 0 = slow..		4500 mS   very "blinky" during refresh
- 1 = medium..	2000 mS		"
- 2 = fast..	 	800 mS		"
- 3 = turbo..	 250 mS   not as blinky, but leaves ghosts ( mitigated by whitewash before refresh )
+-0 = slow..		4500 mS   very "blinky" during refresh
+-1 = medium..	2000 mS		"
+-2 = fast..	 	800 mS		"
+-3 = turbo..	 250 mS   not as blinky, but leaves ghosts ( mitigated by whitewash before refresh )
 target_compile_definitions(uc8151d INTERFACE LUT_SPEED=3 )
 
 ### drivers/uc8151d
 LUT SPEED for EPD266
- 0 = slow..		4000 mS   very "blinky" during refresh
- 1 = fast..		???
+-0 = slow..		4000 mS   very "blinky" during refresh
+-1 = fast..		???
 target_compile_definitions(epd266 INTERFACE LUT_SPEED=1 )
 
 ### examples/pico_bike
 Select the demo mode...
 target_compile_definitions(pico_bike PRIVATE DEMO_MODE )
+
 Define the wheel circumference in mm...
 target_compile_definitions(pico_bike PRIVATE WHEEL_CIRCUMFERENCE_MM=700 )
 
