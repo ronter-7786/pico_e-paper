@@ -42,21 +42,32 @@ typedef struct
 	uint8_t		*pFrameBuffer;
 	uint16_t	*pColorMap;
 	FONT_DESC	*pFontDesc;
-	bool		(*initDisplay)(uint8_t _channel);
-	bool		(*refreshDisplay)(uint8_t _channel);
-	bool		(*busyWaitDisplay)(uint8_t _channel);
-	bool		(*isBusyDisplay)(uint8_t _channel);
-	bool		(*powerDisplay)(uint8_t _channel, bool _power);
+	bool		(*initDisplay)(void);
+	bool		(*refreshDisplay)(void);
+	bool		(*busyWaitDisplay)(void);
+	bool		(*isBusyDisplay)(void);
+	bool		(*powerDisplay)(bool _power);
+	uint32_t	busyTime_ms;
 	uint32_t	frameBufferSize;
 	uint16_t	height,				// frame dimensions in pixels
 				width;
 	uint8_t		magn;				// font magnification
 	uint8_t		pixelDepth;			// color info
+
+	uint8_t		resetPin,			// reset pin
+				busyPin;			// busy pin
+	uint8_t		spiChannel;			// SPI channel
+	uint8_t		spiMosiPin,			// pins for SPI MOSI, MISO, SCK, CS, D/C, BUSY
+				spiMisoPin,
+				spiSckPin,
+				spiCsPin,
+				spiDcPin;
 	uint8_t		flags;				// rotate/mirror  see below
 }DISPLAY_PARAMS;
 
 #define DISPLAY_FLAG_ROTATE_180		0x01	// flip the display 180 deg
 #define DISPLAY_FLAG_ROTATE_90		0x02	// display rotates 90 deg
+#define DISPLAY_FLAG_HEAD_OVER		0x04	// flip the display over
 
 extern FONT_DESC	font_8x16_desc;
 extern FONT_DESC	font_7seg_24x48_desc;

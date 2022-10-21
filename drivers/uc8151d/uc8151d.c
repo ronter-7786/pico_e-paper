@@ -223,7 +223,7 @@ static const UC8151D_CMD	uc8151dCommandInitSequence[] =
 
 static const UC8151D_CMD	UC8151DCommandDisplayOn[] =
 					{
-						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = false, .UC8151DHoldCS = false, .UC8151DArgs = 0, .UC8151DCmd_value = UC8151D_CMD_PON },
+						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = true, .UC8151DHoldCS = false, .UC8151DArgs = 0, .UC8151DCmd_value = UC8151D_CMD_PON },
 						{.UC8151DCmd_code_data = UC8151DDONE },		
 					};
 
@@ -241,7 +241,7 @@ static const UC8151D_CMD	UC8151DCommandRefreshDisplayPrefix[] =
 static const UC8151D_CMD	UC8151DCommandRefreshDisplaySuffix[] =
 					{
 						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = false, .UC8151DHoldCS = false, .UC8151DArgs = 0, .UC8151DCmd_value = UC8151D_CMD_DSP },
-						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = false, .UC8151DHoldCS = false,  .UC8151DArgs = 0, .UC8151DCmd_value = UC8151D_CMD_DRF  },
+						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = true, .UC8151DHoldCS = false,  .UC8151DArgs = 0, .UC8151DCmd_value = UC8151D_CMD_DRF  },
 						{.UC8151DCmd_code_data = UC8151DDONE },	
 					};
 
@@ -275,12 +275,12 @@ static uint16_t		uc8151dColourTable[16] =
 //////////////////////////////
 // Local Function prototypes
 //////////////////////////////
-static bool uc8151d_init( uint8_t _spiIndex  );
-static bool	send_LCD_Message( uint8_t _spiIndex, UC8151D_CMD *_pMsg );
-static bool uc8151d_power(uint8_t _spiIndex, bool _bPowerup  );
-static bool uc8151d_busyWait(uint8_t _spiIndex );
-static bool uc8151d_isBusy( uint8_t _spiIndex );
-static bool uc8151d_refresh( uint8_t _spiIndex  );
+static bool uc8151d_init(void);
+static bool	send_LCD_Message( UC8151D_CMD *_pMsg );
+static bool uc8151d_power( bool _bPowerup  );
+static bool uc8151d_busyWait(void);
+static bool uc8151d_isBusy(void);
+static bool uc8151d_refresh(void);
 
 
 ///////////////////
@@ -302,18 +302,43 @@ DISPLAY_PARAMS	UC8151DDisplayParams =
 	.magn = 1,
 	.height = UC8151D_LCDHEIGHT,
 	.width = UC8151D_LCDWIDTH,
+	.resetPin = UC8151D_RESET_PIN,
+	.busyPin = UC8151D_BUSY_PIN,
+	.spiChannel = UC8151D_SPI_CHANNEL,
+	.spiMosiPin = UC8151D_MOSI_PIN,
+	.spiMisoPin = UC8151D_MISO_PIN,
+	.spiSckPin = UC8151D_SCK_PIN,
+	.spiCsPin = UC8151D_CS_PIN,
+	.spiDcPin = UC8151D_DC_PIN,
 	.flags = DISPLAY_FLAG_ROTATE_90
 };
-
 
 
 /////////////////////////////////////
 // UC8151D Initialization function
 /////////////////////////////////////
 
-static bool uc8151d_init( uint8_t _spiIndex  )
+static bool uc8151d_init(void)
 {
+	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
 	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+
+	// set all gpios used by the spi driver
+	_pSpiChannel->gpio_cs_pin = UC8151DDisplayParams.spiCsPin;
+	_pSpiChannel->gpio_dc_pin = UC8151DDisplayParams.spiDcPin;
+	_pSpiChannel->gpio_tx_pin = UC8151DDisplayParams.spiMosiPin;
+	_pSpiChannel->gpio_rx_pin = UC8151DDisplayParams.spiMisoPin;
+	_pSpiChannel->gpio_sclk_pin = UC8151DDisplayParams.spiSckPin;
+	_pSpiChannel->spi_baud = UC8151D_SPI_BAUD;
+
+	// initialize the pio_spi if it isn't already, else just return false
+	if ( isInitialized_pio_spi(_spiIndex) ) return false;
+	init_pio_spi( _spiIndex );
+
+	// define the BUSY pin as input, pulled up
+	gpio_init(UC8151D_BUSY_PIN);
+	gpio_set_dir(UC8151D_BUSY_PIN,false);				// input
+	gpio_pull_up(UC8151D_BUSY_PIN);						// pulled up
 
 	// define UC8151D Reset pin & activate for > 50 uS
 	gpio_init(UC8151D_RESET_PIN);
@@ -323,47 +348,22 @@ static bool uc8151d_init( uint8_t _spiIndex  )
 	gpio_put(UC8151D_RESET_PIN,true);					// high
 	sleep_us( 2000ULL );								// wait 2 mS
 
-	// set all gpios used by SPI
-	_pSpiChannel->gpio_cs_pin = UC8151D_CS_PIN;
-	_pSpiChannel->gpio_dc_pin = UC8151D_DC_PIN;
-	_pSpiChannel->gpio_busy_pin = UC8151D_BUSY_PIN;
-	_pSpiChannel->spi_baud = UC8151D_SPI_BAUD;
 
-	gpio_init(_pSpiChannel->gpio_sclk_pin);				// spi sck...
-	gpio_set_dir(_pSpiChannel->gpio_sclk_pin,true);		// output
-	gpio_put(_pSpiChannel->gpio_sclk_pin,false);		// low
 
-	gpio_init(_pSpiChannel->gpio_cs_pin);				// spi cs...
-	gpio_set_dir(_pSpiChannel->gpio_cs_pin,true);		// output
-	gpio_put(_pSpiChannel->gpio_cs_pin,true);			// high
-
-	gpio_init(_pSpiChannel->gpio_dc_pin);				// spi dc...
-	gpio_set_dir(_pSpiChannel->gpio_dc_pin,true);		// output
-	gpio_put(_pSpiChannel->gpio_dc_pin,true);			// high ... for now
-
-	gpio_init(_pSpiChannel->gpio_busy_pin);				// spi busy...
-	gpio_set_dir(_pSpiChannel->gpio_busy_pin,false);		// input
-	gpio_pull_up(_pSpiChannel->gpio_busy_pin);			// pulled up
-
-	_pSpiChannel->spi_baud = UC8151D_SPI_BAUD;
-
-	// initialize the pio_spi if it isn't already, else just return false
-	if ( isInitialized_pio_spi(_spiIndex) ) return false;
-	init_pio_spi( _spiIndex );
-
-	return send_LCD_Message(_spiIndex, (UC8151D_CMD *)&uc8151dCommandInitSequence[0]);
+	return send_LCD_Message((UC8151D_CMD *)&uc8151dCommandInitSequence[0]);
 }
 
 /////////////////////////////////////
 // UC8151D Power up/down
 /////////////////////////////////////
 
-static bool uc8151d_power(uint8_t _spiIndex, bool _bPowerup  )
+static bool uc8151d_power( bool _bPowerup  )
 {
+	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
 
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-	return send_LCD_Message(_spiIndex,  _bPowerup ? (UC8151D_CMD *)&UC8151DCommandDisplayOn[0] : (UC8151D_CMD *)&UC8151DCommandDisplayOff[0] );
+	return send_LCD_Message( _bPowerup ? (UC8151D_CMD *)&UC8151DCommandDisplayOn[0] : (UC8151D_CMD *)&UC8151DCommandDisplayOff[0] );
 }
 
 
@@ -371,14 +371,17 @@ static bool uc8151d_power(uint8_t _spiIndex, bool _bPowerup  )
 // UC8151D Refresh Display
 /////////////////////////////////////
 
-static bool uc8151d_refresh( uint8_t _spiIndex  )
+static bool uc8151d_refresh(void)
 {
+	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
 	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+
+	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
 #if ( LUT_SPEED == 3 )	
 	// since this refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
 	memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
-	if ( !send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
+	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = junkBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
@@ -386,13 +389,13 @@ static bool uc8151d_refresh( uint8_t _spiIndex  )
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
 	start_pio_spi(_spiIndex);
-	send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]);
+	send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]);
 	// let this finish
-	uc8151d_busyWait(_spiIndex);
+	uc8151d_busyWait();
 #endif
 
 	// send the frame buffer
-	if ( !send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
+	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = uc8151dFrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
@@ -401,33 +404,32 @@ static bool uc8151d_refresh( uint8_t _spiIndex  )
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
 	start_pio_spi(_spiIndex);
 	// send the suffix
-	return (send_LCD_Message(_spiIndex, (UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]));
+	return (send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]));
 }	
 
 /////////////////////////////////////
 // UC8151D Wait busy 
 /////////////////////////////////////
 
-static bool uc8151d_busyWait(uint8_t _spiIndex )
+static bool uc8151d_busyWait(void)
 {
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
-
+	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-	while ( gpio_get(_pSpiChannel->gpio_busy_pin) == 0 ) tight_loop_contents();
+	while ( gpio_get(UC8151D_BUSY_PIN) == 0 ) tight_loop_contents();
 }
 
 /////////////////////////////////////
 // UC8151D is busy 
 /////////////////////////////////////
 
-static bool uc8151d_isBusy( uint8_t _spiIndex )
+static bool uc8151d_isBusy(void)
 {
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
 
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-	return ( gpio_get(_pSpiChannel->gpio_busy_pin) == 0 );
+	return ( gpio_get(UC8151D_BUSY_PIN) == 0 );
 }
 
 
@@ -438,8 +440,9 @@ static bool uc8151d_isBusy( uint8_t _spiIndex )
 /////////////////////////////////////
 
 
-static bool	send_LCD_Message( uint8_t _spiIndex, UC8151D_CMD *_pMsg )
+static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 {
+	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
 	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
 
 	uint8_t			*_pArray;
@@ -496,7 +499,7 @@ static bool	send_LCD_Message( uint8_t _spiIndex, UC8151D_CMD *_pMsg )
 
 			if ( _bRc )
 			{
-				gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
+				gpio_put(_pSpiChannel->gpio_dc_pin,true);				//  dc high = DATA
 				_pSpiChannel->txBufferSize = _nArgs;
 				_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 				_pSpiChannel->chipSelect = _holdCS ? SPI_CHIP_SELECT_NONE : SPI_CHIP_SELECT_DEASSERT ;		
@@ -517,7 +520,7 @@ static bool	send_LCD_Message( uint8_t _spiIndex, UC8151D_CMD *_pMsg )
 
 		if ( _bRc && _busyWait )				// wait for !Busy ?
 		{
-			while ( gpio_get(_pSpiChannel->gpio_busy_pin) == 0 ) tight_loop_contents();
+			uc8151d_busyWait();
 		}
 	}
 

@@ -33,6 +33,11 @@ bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_
 		_x =  pDisplayParams->width - 1 - _x;
 		_y =  pDisplayParams->height - 1 - _y;
 	}
+
+	if (  pDisplayParams->flags & DISPLAY_FLAG_HEAD_OVER )
+	{
+		_y =  pDisplayParams->height - 1 - _y;
+	}
 	
 	if ( pDisplayParams->pixelDepth == 1 )
 	{

@@ -5,7 +5,6 @@
 *			elapsed time on e-paper display				
 *														
 ********************************************************/
-
 #include "pico_bike.h"
 
 
@@ -21,6 +20,9 @@
 #define DISPLAY_TOTAL_DISTANCE_SCREEN		3
 #define DISPLAY_CURRENT_SPEED				4	
 
+#define MULTICORE_FLAG						0xa55a
+
+
 typedef struct
 {
 	absolute_time_t		lastWheelRevTime;		// last time wheel revolution
@@ -31,24 +33,39 @@ typedef struct
 // Local variables
 /////////////////////
 
-static char				strSpeed[8];						// strings for the speed, distance & time
-static char				strDistance[8];
-static char				strTime[8];
-
-	
 static const char		strPico_bike[] =	"pico-bike";	// labels
 static const char		strKm[] =			"km";						
 static const char		strKph[] =			"km/h";
 
 static mutex_t			frameBufferMutex;					// mutex to lock frame buffer
-static semaphore_t		displayRefreshRequestSemaphore;			// semaphore to request frame refresh
-static semaphore_t		updateRequestSemaphore;						// semaphore to trigger re-calculation of spped/distance
+static semaphore_t		displayRefreshRequestSemaphore;		// semaphore to request framebuffer->screen refresh
+static semaphore_t		updateRequestSemaphore;				// semaphore to trigger update display
 
-static semaphore_t		wheelEventSemaphore;							// an event semaphore for every time the wheel does a revolution
-static WHEEL_EVENT		wheelEvent;
+static semaphore_t		wheelEventSemaphore;				// an event semaphore for every time the wheel does a revolution
+static WHEEL_EVENT		wheelEvent;							// timestamps
 
-// this selects the display we will use
+static int64_t			_elapsedTime_us,					// elapsed time of trip
+						_elapsedTime_ms,
+						_elapsedTime_sec,
+						_elapsedTime_min,
+						_elapsedTime_hour;
+
+static char				strSpeed[8];						// strings for the speed, distance & time
+static char				strDistance[8];
+static char				strTime[8];
+
+//----------------------------------------------------------
+// this selects the display we will use,  see CMakeLists.txt
+//----------------------------------------------------------
+#define	INKY			1
+#define EPAPER_266		2
+
+#if DISPLAY_TYPE == INKY
 static DISPLAY_PARAMS	*pDisplayParams = &UC8151DDisplayParams;
+#elif  DISPLAY_TYPE == EPAPER_266
+static DISPLAY_PARAMS	*pDisplayParams = &EPD266DisplayParams;
+#endif
+
 
 /////////////////////
 // Global variables
@@ -69,9 +86,7 @@ static bool timer_callback(repeating_timer_t *rt);
 
 	Main entry
 
-
 *********************************************************/
-
 
 int main()
 {
@@ -84,29 +99,27 @@ int main()
 	uint8_t				_displayedElapsedTime_min = 99;
 
 	uint64_t			_iWheelRevTime_us;		// how long the wheel took for 1 rev
-	double				_fWheelCircum_mm,		// circumference of wheel in mm
-						_fWheel_mm_perSecond;	// calculated mm/sec speed
+	// set the wheel circumference in mm
+#if defined (WHEEL_CIRCUMFERENCE_MM)
+	double				_fWheelCircum_mm = WHEEL_CIRCUMFERENCE_MM;
+#else
+	double				_fWheelCircum_mm = 700.0f;
+#endif
+	double				_fWheel_mm_perSecond;	// calculated mm/sec speed
 
 	absolute_time_t		_start_time_us,
 						_current_time_us,
 						_last_display_update_time;
 
-	int64_t				_elapsedTime_us,
-						_elapsedTime_ms,
-						_elapsedTime_sec,
-						_elapsedTime_min,
-						_elapsedTime_hour;
-
 	int64_t				_deltaTime;
 
+	uint32_t			_flagValue = 0;
 
 	uint8_t				_displayWhat = DISPLAY_SPLASH_SCREEN;
 	bool				_bNeedRefresh;
 
 	uint8_t				*_pstrValue,
 						*_pstrUnits;
-
-	FONT_DESC			*_pFontDesc = pDisplayParams->pFontDesc;
 
 	alarm_id_t			_alarmID = -1;
 
@@ -129,54 +142,69 @@ int main()
 	gpio_set_dir(WHEEL_REV_PIN,true);						// output
 	gpio_put(WHEEL_REV_PIN,true);							// off = high
 #else
-	gpio_set_dir(PICO_LED_PIN,false);						// input
-	gpio_pull-up(PICO_LED_PIN,true);						// pulled up
+	gpio_set_dir(WHEEL_REV_PIN,false);						// input
+	gpio_pull_up(WHEEL_REV_PIN);							// pulled up
 #endif
 
 	// create synchronization objects for core1 interaction & local use
-	mutex_init( &frameBufferMutex );				// create a mutex to lock frame buffer
+	mutex_init( &frameBufferMutex );						// create a mutex to lock frame buffer
 	sem_init( &displayRefreshRequestSemaphore, 0, 4 );		// counting semaphore to request frame refresh by coore 1
-	sem_init( &updateRequestSemaphore, 1, 1 );				// binary semaphore to request update screen, give 1 permit to start
+	sem_init( &updateRequestSemaphore, 1, 1 );				// binary semaphore to request update screen, 1 permit to start things off
 	sem_init( &wheelEventSemaphore, 0, 1 );					// binary semaphore to indicate 1 wheel revolution
 
-	// inititialize alarm pool 
-	alarm_pool_init_default();
-
+	/////////////////////////////////////////////////////////////////////////////////
 	// start core 1 as the display refresh handler, it will refresh display
 	// from frame buffer when semaphore displayRefreshRequestSemaphore has permits.
-	multicore_reset_core1();
+	multicore_reset_core1(); 	
 	multicore_launch_core1(displayHandler);
+	do // wait til core 1 is ready to accept refresh requests
+	{
+		_flagValue = multicore_fifo_pop_blocking();
+	} while(_flagValue != MULTICORE_FLAG);		
+	/////////////////////////////////////////////////////////////////////////////////
+
+	// inititialize alarm pool 
+	//alarm_pool_init_default();
+
+
+
+#ifndef NDEBUG
+	mutex_enter_blocking(&frameBufferMutex);			// lock the frame buffer
+	clear_frameBuffer(pDisplayParams,WHITE);
+	for ( uint16_t __x = 0; __x < 32; __x++ )
+	{
+		for ( uint16_t __y = 0; __y < 64; __y++ ) draw_pixel(pDisplayParams, __x, __y, BLACK );
+	}
+	mutex_exit(&frameBufferMutex);						// free the frame buffer
+	sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
+	sleep_ms(3000);										// 3 second pause... see if a rectangle appears
+#endif
 
 	// get the start time
 	_start_time_us = get_absolute_time();
 	_last_display_update_time = _start_time_us;
 
-	watchdog_enable( 2000, true );						// 2 second watchdog  
-
-	// set the wheel circumference in mm
-#if defined (WHEEL_CIRCUMFERENCE_MM)
-	_fWheelCircum_mm = WHEEL_CIRCUMFERENCE_MM;
-#else
-	_fWheelCircum_mm = 700.0f;
-#endif
+	watchdog_enable( 8000, true );							// 8 second watchdog  
 
 	// now loop to service events as they occur
 	while(true)
 	{
 		// get the elapsed time in uS, and calculate higher order units
 		_current_time_us  = get_absolute_time();
-
 		_elapsedTime_us = absolute_time_diff_us ( _start_time_us, _current_time_us );
-		_elapsedTime_ms = _elapsedTime_us / 1000;
-		_elapsedTime_us = _elapsedTime_us % 1000;
-		_elapsedTime_sec = _elapsedTime_ms / 1000;
-		_elapsedTime_ms = _elapsedTime_ms % 1000;
-		_elapsedTime_min = _elapsedTime_sec / 60;
-		_elapsedTime_sec = _elapsedTime_sec % 60;
-		_elapsedTime_hour = _elapsedTime_min / 60;
-		_elapsedTime_min = _elapsedTime_min % 60;
+		if ( _elapsedTime_us != 0 )
+		{
+			_elapsedTime_ms = _elapsedTime_us / 1000;
+			_elapsedTime_us = _elapsedTime_us % 1000;
+			_elapsedTime_sec = _elapsedTime_ms / 1000;
+			_elapsedTime_ms = _elapsedTime_ms % 1000;
+			_elapsedTime_min = _elapsedTime_sec / 60;
+			_elapsedTime_sec = _elapsedTime_sec % 60;
+			_elapsedTime_hour = _elapsedTime_min / 60;
+			_elapsedTime_min = _elapsedTime_min % 60;
+		}
 
-		watchdog_update();
+		watchdog_update();							// keep the watchdog on-leash
 
 #if defined(DEMO_MODE)
 		if ( !_bInDemoMode )	
@@ -210,7 +238,6 @@ int main()
 						else  if ( _fSpeed < 10.0 ) _bDemoAccelerate = true;
 						_demoWheelRev_ms +=  _bDemoAccelerate ?  -10 : 25 ; 
 						cancel_repeating_timer( &_wheelRevTimerID );
-						sem_reset ( &wheelEventSemaphore, 0 );
 						add_repeating_timer_ms( _demoWheelRev_ms, timer_callback, NULL, &_wheelRevTimerID );	
 						_lastWheelSpeedChange = _current_time_us;
 					}
@@ -238,7 +265,7 @@ int main()
 		// see if time to update display
 		if ( sem_try_acquire( &updateRequestSemaphore ) )
 		{
-			_fDistance_km = _fDistance_mm / 1000000.0f;				// convert to viewable units
+			_fDistance_km = _fDistance_mm / 1000000.0f;				// convert to human units
 
 			// Display the screen(s)
 			switch ( _displayWhat )
@@ -250,11 +277,11 @@ int main()
 				pDisplayParams->magn = 4;
 				draw_string(pDisplayParams,(char *)strPico_bike, 0, 0, WHITE,BLACK);
 				mutex_exit(&frameBufferMutex);						// free the frame buffer
-				sem_release(&displayRefreshRequestSemaphore);				// request a refresh by core1
+				sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 5000, alarm_callback, NULL, true );	// hold splash screen for 5 sec
+				_alarmID = add_alarm_in_ms( ( pDisplayParams->busyTime_ms > 5000)? pDisplayParams->busyTime_ms : 5000, alarm_callback, NULL, true );	// hold splash screen for 5 sec
 				_displayWhat = DISPLAY_SUMMARY_SCREEN;
 				_displayedElapsedTime_min = 99;
 				break;
@@ -264,21 +291,24 @@ int main()
 				{
 					mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
-					pDisplayParams->pFontDesc = &font_8x16_desc;	// 32 x 64 font
-					pDisplayParams->magn = 4;
+					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 24 x 48 font
+					pDisplayParams->magn = 1;
 					sprintf(strTime, "%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min );
 					draw_string(pDisplayParams,strTime, 0, 0, WHITE,BLACK);
-					sprintf(strDistance, "%-4.1f%s", _fDistance_km, strKm );
+					sprintf(strDistance, "%-4.1f", _fDistance_km );
 					draw_string(pDisplayParams,strDistance, 0, 64, WHITE,BLACK);
+					pDisplayParams->pFontDesc = &font_8x16_desc;	// 32 x 64 font
+					pDisplayParams->magn = 2;
+					draw_string(pDisplayParams,(char *)strKm, strlen(strDistance) * font_7seg_24x48_desc.Width , 64 + font_7seg_24x48_desc.Height - font_8x16_desc.Height - 20, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);					// free the frame buffer
-					sem_release(&displayRefreshRequestSemaphore);			// request a refresh by core1
+					sem_release(&displayRefreshRequestSemaphore);	// request a refresh by core1
 					_displayedElapsedTime_min = _elapsedTime_min;
 					_fDisplayedDistance = _fDistance_km;
 				}
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 1000, alarm_callback, NULL, true );  // update in 1 second
+				_alarmID = add_alarm_in_ms( ( pDisplayParams->busyTime_ms > 3000)? pDisplayParams->busyTime_ms : 3000, alarm_callback, NULL, true );  // update in 3 seconds
 
 				// if stopped, then keep displaying SUMMARY screen. otherwise go to automatic changing display, hands-free!!!!!
 				if ( _fSpeed >= 0.5f ) 
@@ -302,13 +332,13 @@ int main()
 					pDisplayParams->magn = 2;
 					draw_string(pDisplayParams,(char *)strKph,160,96,WHITE,BLACK);	// display the units
 					mutex_exit(&frameBufferMutex);						// free the frame buffer
-					sem_release(&displayRefreshRequestSemaphore);				// request a refresh by core1
+					sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
 					_fDisplayedSpeed = _fSpeed;							// update last displayed speed
 				}
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 1000, alarm_callback, NULL, true );  // update in 1 second
+				_alarmID = add_alarm_in_ms( ( pDisplayParams->busyTime_ms > 1000)? pDisplayParams->busyTime_ms : 1000, alarm_callback, NULL, true );  // update in 1 second
 
 				// if not moving, go back to summary screen
 				if ( _fSpeed  < 0.5f )
@@ -349,10 +379,10 @@ int main()
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 2000, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms ( (pDisplayParams->busyTime_ms > 2000)? pDisplayParams->busyTime_ms : 2000, alarm_callback, NULL, true );  // update in 2 seconds
 
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
-				if ( _deltaTime < (int64_t)(5*1000*1000) )	 _displayWhat = DISPLAY_TOTAL_DISTANCE_SCREEN;		// has this been displayed for 5 seconds?
+				if ( _deltaTime < (int64_t)30000000LL)	 _displayWhat = DISPLAY_TOTAL_DISTANCE_SCREEN;		// has this been displayed for 30 seconds?
 				else 
 				{
 					_displayWhat = DISPLAY_ELAPSED_TIME_SCREEN;
@@ -376,9 +406,9 @@ int main()
 				}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( 2000, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms(   (pDisplayParams->busyTime_ms > 2000)? pDisplayParams->busyTime_ms : 2000, alarm_callback, NULL, true );  // update in 2 seconds
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
-				if ( _deltaTime < (int64_t)(10*1000*1000) )	 _displayWhat = DISPLAY_ELAPSED_TIME_SCREEN;		// has this been displayed for 10 seconds?
+				if ( _deltaTime < (int64_t)15000000LL )	 _displayWhat = DISPLAY_ELAPSED_TIME_SCREEN;		// has this been displayed for 15 seconds?
 				else 
 				{
 					_displayWhat = DISPLAY_CURRENT_SPEED;
@@ -401,18 +431,19 @@ int main()
 
 static void displayHandler(void)
 {	
-	// initialize the display 
-	pDisplayParams->initDisplay( UC8151D_SPI_CHANNEL );
+	// initialize the physical display
+	pDisplayParams->initDisplay( );
+
+	multicore_fifo_push_blocking(MULTICORE_FLAG);
 
 	while ( true )
 	{
 		sem_acquire_blocking(&displayRefreshRequestSemaphore);	// wait for a refresh permit
-
 		mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
-		pDisplayParams->refreshDisplay( UC8151D_SPI_CHANNEL );			// refresh the display 
+		pDisplayParams->refreshDisplay( );				// refresh the display 
 		mutex_exit(&frameBufferMutex);					// free the frame buffer
 		
-		pDisplayParams->busyWaitDisplay( UC8151D_SPI_CHANNEL );		// wait till not busy before next refresh... with slower LUT speeds, this may take a while
+		pDisplayParams->busyWaitDisplay( );				// wait till not busy before next refresh... with slower LUT speeds, this may take a while
 	}		
 
 }

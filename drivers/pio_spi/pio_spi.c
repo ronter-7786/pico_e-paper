@@ -34,6 +34,7 @@ static SPI_CHANNEL	spi0Channel =
 	.gpio_rx_pin = SPI0_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
 	.gpio_dc_pin = PICO_NO_PIN,
+	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
 // PIO-SPI channel 1 uses pio 0 sm 1  dma channels 2 & 3
@@ -48,6 +49,8 @@ static SPI_CHANNEL	spi1Channel =
 	.gpio_tx_pin = SPI1_TX_PIN,
 	.gpio_rx_pin = SPI1_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
+	.gpio_dc_pin = PICO_NO_PIN,
+	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
 // indicates whether or not a pio-spi channel has been initialized
@@ -89,6 +92,18 @@ bool init_pio_spi(uint8_t _channel_index )
 
 	fBaud = sysClock;
 	fBaud = fBaud / (_channel_desc->spi_baud * PIO_SPI_SCK_CYCLE );
+
+	// set the direction of gpio pins used by SPI
+	gpio_init(_channel_desc->gpio_cs_pin);					// spi cs...
+	gpio_set_dir(_channel_desc->gpio_cs_pin,true);			// output
+	gpio_put(_channel_desc->gpio_cs_pin,true);				// high
+
+	if ( _channel_desc->gpio_dc_pin != PICO_NO_PIN )
+	{
+		gpio_init(_channel_desc->gpio_dc_pin);				// spi dc...
+		gpio_set_dir(_channel_desc->gpio_dc_pin,true);		// output
+		gpio_put(_channel_desc->gpio_dc_pin,true);			// high
+	}
 
     _pio_spi->offset = pio_add_program(_pio_spi->pio, _pio_spi->pPIOprogram);
 

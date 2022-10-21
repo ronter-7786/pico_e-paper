@@ -6,10 +6,9 @@
 #include <pico/mutex.h>
 #include <pico/sem.h>
 
-
-
 #define MAX_SPI_CHANNELS			2
 
+// these are defaults that can be overwritten before init_pio_spi()
 #define SPI0_RX_PIN					16					// spi0 rx ( MISO )
 #define SPI0_TX_PIN					19					// spi0 tx ( MOSI)
 #define SPI0_SCK_PIN				18					// spi0 sclk

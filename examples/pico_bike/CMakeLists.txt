@@ -9,6 +9,11 @@ target_sources ( pico_bike PRIVATE
 target_compile_definitions(pico_bike PRIVATE DEMO_MODE )
 target_compile_definitions(pico_bike PRIVATE WHEEL_CIRCUMFERENCE_MM=700 )
 
+# select the display type
+# 1 = INKY			for Pimoroni pico inky
+# 2 = EPAPER_266	for WaveShare pico e-paper 2.66"
+target_compile_definitions(pico_bike PRIVATE DISPLAY_TYPE=2 )
+
 
 # Pull in libraries that we need
 target_link_libraries( pico_bike PRIVATE
@@ -21,6 +26,7 @@ target_link_libraries( pico_bike PRIVATE
 		hardware_adc
 		pio_spi
 		uc8151d
+		epd266
 		graphics
  )
 

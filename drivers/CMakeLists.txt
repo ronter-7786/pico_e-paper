@@ -2,4 +2,6 @@
 
 add_subdirectory(pio_spi)
 add_subdirectory(uc8151d)
+add_subdirectory(epd266)
+
 

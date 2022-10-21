@@ -28,23 +28,26 @@
  *
 ******************************************************/
 
-#define UC8151D_BUSY_PIN				26			// Busy on GPIO 26
+// define GPIO pins used by this display
+#define UC8151D_SPI_CHANNEL				0			// display is on spi channel 0
+
+#define UC8151D_MOSI_PIN				19			// SPI MOSI
+#define UC8151D_MISO_PIN				16			// SPI MISO
+#define UC8151D_SCK_PIN					18			// SPI SCK
+#define UC8151D_DC_PIN					20			// C/D on GPIO 20
+#define UC8151D_CS_PIN					17			// CS on GPIO17
+#define UC8151D_BUSY_PIN				26			// BUSY! on GPIO 26
 #define UC8151D_RESET_PIN				21			// Reset on GPIO 21
+#define UC8151D_SWA_PIN					12			// Button A on GPIO12
+#define UC8151D_SWB_PIN					13			// Button B on GPIO13
+#define UC8151D_SWC_PIN					14			// Button C on GPIO14
 
 #ifndef NDEBUG
 #define UC8151D_SPI_BAUD				1000000		// clock speed of SPI bus
 #else
-#define UC8151D_SPI_BAUD				10000000	// clock speed of SPI bus
+#define UC8151D_SPI_BAUD				4000000		// clock speed of SPI bus
 #endif
 
-#define UC8151D_SPI_CHANNEL				0			// display spi channel 0
-#define UC8151D_DC_PIN					20			// C/D on GPIO 20
-#define UC8151D_CS_PIN					17			// CS on GPIO17
-#define UC8151D_BUSY_PIN				26			// BUSY! on GPIO 26
-
-#define UC8151D_SWA_PIN					12			// Button A on GPIO12
-#define UC8151D_SWB_PIN					13			// Button B on GPIO13
-#define UC8151D_SWC_PIN					14			// Button C on GPIO14
 
 #define UC8151D_LCDWIDTH				296			// 296 x 128 pixel sisplay
 #define UC8151D_LCDHEIGHT				128

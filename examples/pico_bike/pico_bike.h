@@ -38,15 +38,13 @@
 
 #include "pio_spi.h"
 #include "uc8151d.h"
+#include "epd266.h"
 #include "pixel_func.h"
 
+/////////////////////////////////
 // defines for  gpio pin numbers 
-#define SPI0_RX_PIN				16					// spi0 rx ( MISO )
-#define SPI0_SCK_PIN			18					// spi0 sclk
-#define SPI0_TX_PIN				19					// spi0 tx ( MOSI)
-#define SPI1_SCK_PIN			10					// spi1 sclk
-#define SPI1_TX_PIN				11					// spi1 tx ( MOSI )
-#define SPI1_RX_PIN				12					// spi1 rx ( MISO )
+/////////////////////////////////
+
 #define PICO_LED_PIN			25					// this turns LED on/off
 
 #define WHEEL_REV_PIN			27					// trigger for wheel revolution
