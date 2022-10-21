@@ -12,13 +12,11 @@ target_sources ( epd266  INTERFACE
 #
 ###############################################
 
-# LUT SPEED for EPD 2.66
-# 0 = slow..	4500 mS   very "blinky" during refresh
-# 1 = medium..	2000 mS		"
-# 2 = fast..	 800 mS		"
-# 3 = turbo..	 250 mS   not as blinky, but leaves ghosts ( mitigated by whitewash before refresh )
+# LUT SPEED for EPD266
+# 0 = slow..	4000 mS   very "blinky" during refresh
+# 1 = fast..	???
 
-target_compile_definitions(epd266 INTERFACE LUT_SPEED=3 )
+target_compile_definitions(epd266 INTERFACE LUT_SPEED=1 )
 
 ###############################################
 

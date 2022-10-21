@@ -22,7 +22,7 @@
 //
 ///////////////////////////////////////////
 
-#if ( LUT_SPEED == 3 )
+#if ( LUT_SPEED == 1 )
 static const unsigned char LUT[159] = {
 0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 0x00,0x00,0x80,0x80,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -56,7 +56,7 @@ static const EPD266_CMD	epd266CommandInitSequence[] =
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value = 0 },
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  EPD266_LCDWIDTH & 0xFF },
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  (EPD266_LCDWIDTH >>8) & 0x01 },
-#if ( LUT_SPEED == 3 )
+#if ( LUT_SPEED == 1 )
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_LUT },
 							{.EPD266Cmd_code_data = EPD266ARRAY, .EPD266Array = (uint8_t *)&LUT[0], .EPD266Args = sizeof(LUT) },
 #endif
