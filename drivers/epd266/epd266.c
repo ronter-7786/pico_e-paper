@@ -144,8 +144,10 @@ DISPLAY_PARAMS	EPD266DisplayParams =
 	.magn = 1,
 #if LUT_SPEED_EPD266 == 0
 	.busyTime_ms = 4500,	
-#else
-	.busyTime_ms = 800 * 2,			// this includes the whitewash
+#elif LUT_SPEED_EPD266 == 1
+	.busyTime_ms = 880,			
+#elif LUT_SPEED_EPD266 == 2
+	.busyTime_ms = 1760,			
 #endif
 	.height = EPD266_LCDHEIGHT,
 	.width = EPD266_LCDWIDTH,

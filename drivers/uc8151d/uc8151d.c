@@ -19,6 +19,7 @@
 //			1 = medium  2000 mS
 //			2 = fast	 800 mS
 //			3 = turbo	 250 mS   ** leaves behind "ghosts" but an extra pre-write of all 1's helps
+//			4 = turbo +	 500 mS   same as turbo, but with pre-whitewash
 //
 ///////////////////////////////////////////
 #if ( LUT_SPEED_UC8151D == 1 )
@@ -125,7 +126,7 @@ static const uint8_t	lutBB[] =
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
-#elif ( LUT_SPEED_UC8151D == 3 )
+#elif ( LUT_SPEED_UC8151D == 3 ) || ( LUT_SPEED_UC8151D == 4 )
 static const uint8_t	lutVCOM[] =
 	{
       0x00, 0x01, 0x01, 0x02, 0x00, 0x01,
@@ -308,6 +309,8 @@ DISPLAY_PARAMS	UC8151DDisplayParams =
 	.busyTime_ms = 800,
 #elif LUT_SPEED_UC8151D == 3
 	.busyTime_ms = 250,
+#elif LUT_SPEED_UC8151D == 4
+	.busyTime_ms = 500,
 #endif
 	.height = UC8151D_LCDHEIGHT,
 	.width = UC8151D_LCDWIDTH,
@@ -387,8 +390,8 @@ static bool uc8151d_refresh(void)
 
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-#if ( LUT_SPEED_UC8151D == 3 )	
-	// since this refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
+#if ( LUT_SPEED_UC8151D == 4 )	
+	// since turbo refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
 	memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA

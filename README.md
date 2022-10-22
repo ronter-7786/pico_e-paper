@@ -8,17 +8,18 @@ In the CMakeLists.txt files for the drivers and examples are target_compile_defi
 ### drivers/uc8151d
 LUT_SPEED for UC8151D
 - 0 = slow..		4500 mS   very "blinky" during refresh
-- 1 = medium..	2000 mS		"
+- 1 = medium..	    2000 mS		"
 - 2 = fast..	 	800 mS		"
-- 3 = turbo..	 250 mS   not as blinky, but leaves ghosts ( mitigated by whitewash before refresh )
+- 3 = turbo..	    250 mS   not as blinky, but leaves ghosts
+- 4 = turbo + ..	500 ms	 same as turbo, but with pre-whitewash
 
 target_compile_definitions(uc8151d INTERFACE LUT_SPEED_UC8151D=3 )
 
-### drivers/uc8151d
+### drivers/epd266
  LUT SPEED for EPD266
 - 0 = slow..				4500 mS   very "blinky" during refresh
-- 1 = fast..				 800 mS	  fast but ghosty	
-- 2 = fast with whitwash	1600 mS	  twice as long as fast, but with a pre-whitewash
+- 1 = fast..				 880 mS	  fast but possibly ghosty	
+- 2 = fast with whitwash	1760 mS	  twice as long as fast, but with a pre-whitewash
 
 target_compile_definitions(epd266 INTERFACE LUT_SPEED_EPD266=1 )
 

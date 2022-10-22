@@ -50,9 +50,9 @@ static int64_t			_elapsedTime_us,					// elapsed time of trip
 						_elapsedTime_min,
 						_elapsedTime_hour;
 
-static char				strSpeed[8];						// strings for the speed, distance & time
-static char				strDistance[8];
-static char				strTime[8];
+static char				strSpeed[6];						// strings for the speed, distance & time
+static char				strDistance[16];
+static char				strTime[16];
 
 //----------------------------------------------------------
 // this selects the display we will use,  see CMakeLists.txt
@@ -96,7 +96,8 @@ int main()
 						_fDisplayedSpeed = 99.99,
 						_fDisplayedDistance = 999.99;
 
-	uint8_t				_displayedElapsedTime_min = 99;
+	int64_t				_displayedElapsedTime_min = 99,
+						_displayedElapsedTime_sec = 66;
 
 	uint64_t			_iWheelRevTime_us;		// how long the wheel took for 1 rev
 	// set the wheel circumference in mm
@@ -167,7 +168,6 @@ int main()
 	//alarm_pool_init_default();
 
 
-
 #ifndef NDEBUG
 	mutex_enter_blocking(&frameBufferMutex);			// lock the frame buffer
 	clear_frameBuffer(pDisplayParams,WHITE);
@@ -211,7 +211,7 @@ int main()
 		{
 			// start the demo after 10 seconds
 			_deltaTime = absolute_time_diff_us ( _start_time_us, _current_time_us );
-			if ( _deltaTime >= (int64_t)10000000LL )	// 10 seconds
+			if ( _deltaTime >= (int64_t)20000000LL )	// 20 seconds
 			{
 				add_repeating_timer_ms( _demoWheelRev_ms, timer_callback, NULL, &_wheelRevTimerID );	
 				_lastWheelSpeedChange = _current_time_us;
@@ -287,13 +287,13 @@ int main()
 				break;
 
 			case DISPLAY_SUMMARY_SCREEN:
-				if ( ( (_fDistance_km - _fDisplayedDistance) >= 0.1f ) || ( _displayedElapsedTime_min != _elapsedTime_min )	)	// do we need to update display now?
+				if ( ( (_fDistance_km - _fDisplayedDistance) >= 0.1f ) || ( _displayedElapsedTime_sec != _elapsedTime_sec )	)	// do we need to update display now?
 				{
 					mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 24 x 48 font
 					pDisplayParams->magn = 1;
-					sprintf(strTime, "%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min );
+					sprintf(strTime, "%02lld:%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min, _elapsedTime_sec );
 					draw_string(pDisplayParams,strTime, 0, 0, WHITE,BLACK);
 					sprintf(strDistance, "%-4.1f", _fDistance_km );
 					draw_string(pDisplayParams,strDistance, 0, 64, WHITE,BLACK);
@@ -302,13 +302,13 @@ int main()
 					draw_string(pDisplayParams,(char *)strKm, (strlen(strDistance) * font_7seg_24x48_desc.Width) + 8 , 64 + font_7seg_24x48_desc.Height - font_8x16_desc.Height - 16, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);					// free the frame buffer
 					sem_release(&displayRefreshRequestSemaphore);	// request a refresh by core1
-					_displayedElapsedTime_min = _elapsedTime_min;
+					_displayedElapsedTime_sec = _elapsedTime_sec;
 					_fDisplayedDistance = _fDistance_km;
 				}
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms( ( pDisplayParams->busyTime_ms > 3000)? pDisplayParams->busyTime_ms : 3000, alarm_callback, NULL, true );  // update in 3 seconds
+				_alarmID = add_alarm_in_ms( ( pDisplayParams->busyTime_ms > 1000)? pDisplayParams->busyTime_ms : 1000, alarm_callback, NULL, true );  // update in 1 second
 
 				// if stopped, then keep displaying SUMMARY screen. otherwise go to automatic changing display, hands-free!!!!!
 				if ( _fSpeed >= 0.5f ) 
