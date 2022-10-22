@@ -299,7 +299,7 @@ int main()
 					draw_string(pDisplayParams,strDistance, 0, 64, WHITE,BLACK);
 					pDisplayParams->pFontDesc = &font_8x16_desc;	// 32 x 64 font
 					pDisplayParams->magn = 2;
-					draw_string(pDisplayParams,(char *)strKm, strlen(strDistance) * font_7seg_24x48_desc.Width , 64 + font_7seg_24x48_desc.Height - font_8x16_desc.Height - 20, WHITE,BLACK);
+					draw_string(pDisplayParams,(char *)strKm, (strlen(strDistance) * font_7seg_24x48_desc.Width) + 8 , 64 + font_7seg_24x48_desc.Height - font_8x16_desc.Height - 16, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);					// free the frame buffer
 					sem_release(&displayRefreshRequestSemaphore);	// request a refresh by core1
 					_displayedElapsedTime_min = _elapsedTime_min;

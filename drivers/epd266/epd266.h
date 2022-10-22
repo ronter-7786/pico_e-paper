@@ -41,9 +41,9 @@
 #define EPD266_CS_PIN					9			// CS
 
 #ifndef NDEBUG
-#define EPD266_SPI_BAUD				1000000		// clock speed of SPI bus
+#define EPD266_SPI_BAUD					1000000		// clock speed of SPI bus
 #else
-#define EPD266_SPI_BAUD				4000000		// clock speed of SPI bus
+#define EPD266_SPI_BAUD					4000000		// clock speed of SPI bus
 #endif
 
 
@@ -54,10 +54,13 @@
 #define EPD266_CMD_RST					0x12		// Reset
 #define EPD266_CMD_DEM					0x11		// Data entry mode
 #define EPD266_CMD_ACTIVATE				0x20		// activate the display
+#define EPD266_CMD_DUC2					0x22		// Display Update Control 2
 #define EPD266_CMD_WRITE_RAM			0x24		// white to RAM buffer
 #define EPD266_CMD_RAM_X				0x44		// Set RAM X address Start/End
 #define EPD266_CMD_RAM_Y				0x45		// Set RAM Y address Start/End
 #define EPD266_CMD_LUT					0x32		// write the look-up table
+#define EPD266_CMD_WTF					0x37		// undocumented!
+#define EPD266_CMD_VBD					0x3C
 
 
 

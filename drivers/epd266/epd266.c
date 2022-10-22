@@ -12,18 +12,8 @@
 /*	Local Variables		*/
 /************************/
 
-///////////////////////////////////////////
-// Look Up Tables for refresh rate
-//  4 speeds...
-//			0 = slow	4500 mS   (default)
-//			1 = medium  2000 mS
-//			2 = fast	 800 mS
-//			3 = turbo	 250 mS   ** leaves behind "ghosts" but an extra pre-write of all 1's helps
-//
-///////////////////////////////////////////
-
-#if ( LUT_SPEED == 1 )
-static const unsigned char LUT[159] = {
+#if LUT_SPEED_EPD266 != 0
+const uint8_t LUT[159] = {
 0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 0x00,0x00,0x80,0x80,0x00,0x00,0x00,0x00,0x00,0x00,
 0x00,0x00,0x00,0x00,0x40,0x40,0x00,0x00,0x00,0x00,
@@ -41,11 +31,21 @@ static const unsigned char LUT[159] = {
 0x00,0x00,0x00,0x00,0x22,0x22,0x22,0x22,0x22,0x22,
 0x00,0x00,0x00,0x22,0x17,0x41,0xB0,0x32,0x36,
 };
+
+const uint8_t LUT2[10] = { 0, 0, 0, 0, 0, 0x40, 0, 0, 0, 0 };
+
+
 #endif
 
 static const EPD266_CMD	epd266CommandInitSequence[] =
 					{
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = true, .EPD266HoldCS = false, .EPD266Args = 0, .EPD266Cmd_value = EPD266_CMD_RST },
+#if LUT_SPEED_EPD266 != 0
+						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_LUT },
+							{.EPD266Cmd_code_data = EPD266ARRAY, .EPD266Array= (uint8_t *)&LUT[0], .EPD266Args = sizeof(LUT) }, 
+						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_WTF },
+							{.EPD266Cmd_code_data = EPD266ARRAY, .EPD266Array= (uint8_t *)&LUT2[0], .EPD266Args = sizeof(LUT2) }, 
+#endif
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_DEM },
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  0x03 },
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 2, .EPD266Cmd_value = EPD266_CMD_RAM_X },
@@ -55,12 +55,15 @@ static const EPD266_CMD	epd266CommandInitSequence[] =
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value = 0 },
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value = 0 },
 							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  EPD266_LCDWIDTH & 0xFF },
-							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  (EPD266_LCDWIDTH >>8) & 0x01 },
-#if ( LUT_SPEED == 1 )
-						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_LUT },
-							{.EPD266Cmd_code_data = EPD266ARRAY, .EPD266Array = (uint8_t *)&LUT[0], .EPD266Args = sizeof(LUT) },
+							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  (EPD266_LCDWIDTH >>8) & 0x01 }, 
+#if LUT_SPEED_EPD266 != 0
+						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_VBD },
+							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  0x80 },
+						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = false, .EPD266Args = 1, .EPD266Cmd_value = EPD266_CMD_DUC2 },
+							{.EPD266Cmd_code_data = EPD266DATA, .EPD266Cmd_value =  0xCF },
+						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = true, .EPD266HoldCS = false, .EPD266Args = 0, .EPD266Cmd_value = EPD266_CMD_ACTIVATE },
 #endif
-						{.EPD266Cmd_code_data = EPD266DONE},		
+						{.EPD266Cmd_code_data = EPD266DONE },	
 					};
 
 static const EPD266_CMD	EPD266CommandDisplayOn[] =
@@ -72,12 +75,12 @@ static const EPD266_CMD	EPD266CommandDisplayOff[] =
 					{
 						{.EPD266Cmd_code_data = EPD266DONE },		
 					};
-static const EPD266_CMD	EPD266CommandRefreshDisplayPrefix[] =
+static const EPD266_CMD	EPD266CommandRefreshDisplayBuffer[] =
 					{
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = false, .EPD266HoldCS = true, .EPD266Args = 0, .EPD266Cmd_value = EPD266_CMD_WRITE_RAM },
 						{.EPD266Cmd_code_data = EPD266DONE },	
 					};
-static const EPD266_CMD	EPD266CommandRefreshDisplaySuffix[] =
+static const EPD266_CMD	EPD266CommandRefreshDisplay[] =
 					{
 						{.EPD266Cmd_code_data = EPD266CMD, .EPD266Cmd_delay = 0, .EPD266BusyWait = true, .EPD266HoldCS = false, .EPD266Args = 0, .EPD266Cmd_value = EPD266_CMD_ACTIVATE },
 						{.EPD266Cmd_code_data = EPD266DONE },	
@@ -139,7 +142,11 @@ DISPLAY_PARAMS	EPD266DisplayParams =
 	.pColorMap = epd266ColourTable,
 	.pFontDesc = &font_8x16_desc,
 	.magn = 1,
-	.busyTime_ms = 4000,		// worst case
+#if LUT_SPEED_EPD266 == 0
+	.busyTime_ms = 4500,	
+#else
+	.busyTime_ms = 800 * 2,			// this includes the whitewash
+#endif
 	.height = EPD266_LCDHEIGHT,
 	.width = EPD266_LCDWIDTH,
 	.resetPin = EPD266_RESET_PIN,
@@ -150,7 +157,7 @@ DISPLAY_PARAMS	EPD266DisplayParams =
 	.spiCsPin = EPD266_CS_PIN,
 	.busyPin = EPD266_BUSY_PIN,
 	.spiDcPin = EPD266_DC_PIN,
-	.flags = DISPLAY_FLAG_ROTATE_90 | DISPLAY_FLAG_HEAD_OVER
+	.flags = DISPLAY_FLAG_HEAD_OVER | DISPLAY_FLAG_BYTE_PIXELS_VERTICAL
 };
 
 
@@ -218,10 +225,10 @@ static bool epd266_refresh(void)
 
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-#if 0
-	// since this refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
+#if LUT_SPEED_EPD266 == 2
+	// since this refresh mode is so fast there's time to whitewash the display 1st
 	memset ( junkBuffer, epd266ColourTable[WHITE], EPD266_FRAME_BUFFER_SIZE );
-	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayPrefix[0]) ) return false;
+	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayBuffer[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = junkBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
@@ -229,13 +236,13 @@ static bool epd266_refresh(void)
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
 	start_pio_spi(_spiIndex);
-	send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplaySuffix[0]);
+	send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplay[0]);
 	// let this finish
 	epd266_busyWait();
 #endif
 
 	// send the frame buffer
-	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayPrefix[0]) ) return false;
+	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayBuffer[0]) ) return false;
 	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = epd266FrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
@@ -244,7 +251,7 @@ static bool epd266_refresh(void)
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
 	start_pio_spi(_spiIndex);
 	// send the suffix
-	return (send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplaySuffix[0]));
+	return (send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplay[0]));
 }	
 
 /////////////////////////////////////

@@ -13,13 +13,11 @@ target_sources ( epd266  INTERFACE
 ###############################################
 
 # LUT SPEED for EPD266
-# 0 = slow..	4000 mS   very "blinky" during refresh
-# 1 = fast..	???
+# 0 = slow..				4500 mS   very "blinky" during refresh
+# 1 = fast..				 800 mS	  fast but ghosty	
+# 2 = fast with whitwash	1600 mS	  twice as long as fast, but with a pre-whitewash
 
-target_compile_definitions(epd266 INTERFACE LUT_SPEED=1 )
-
-###############################################
-
+target_compile_definitions(epd266 INTERFACE LUT_SPEED_EPD266=1 )
 
 target_include_directories(epd266  INTERFACE 
 	./

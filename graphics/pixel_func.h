@@ -65,9 +65,9 @@ typedef struct
 	uint8_t		flags;				// rotate/mirror  see below
 }DISPLAY_PARAMS;
 
-#define DISPLAY_FLAG_ROTATE_180		0x01	// flip the display 180 deg
-#define DISPLAY_FLAG_ROTATE_90		0x02	// display rotates 90 deg
-#define DISPLAY_FLAG_HEAD_OVER		0x04	// flip the display over
+#define DISPLAY_FLAG_ROTATE_180					0x01	// flip the display 180 deg
+#define DISPLAY_FLAG_BYTE_PIXELS_VERTICAL		0x02	// display rotates 90 deg
+#define DISPLAY_FLAG_HEAD_OVER					0x04	// flip the display over
 
 extern FONT_DESC	font_8x16_desc;
 extern FONT_DESC	font_7seg_24x48_desc;

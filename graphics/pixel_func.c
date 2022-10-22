@@ -41,17 +41,17 @@ bool draw_pixel(DISPLAY_PARAMS *pDisplayParams, uint16_t _x, uint16_t _y, COLOR_
 	
 	if ( pDisplayParams->pixelDepth == 1 )
 	{
-		if ( pDisplayParams->flags & DISPLAY_FLAG_ROTATE_90 ) _pixelPosn = ( _x * (pDisplayParams->height/8) ) + ( _y / 8 );
+		if ( pDisplayParams->flags & DISPLAY_FLAG_BYTE_PIXELS_VERTICAL ) _pixelPosn = ( _x * (pDisplayParams->height/8) ) + ( _y / 8 );
 		else _pixelPosn = ( _x + ( ( _y / 8 ) * pDisplayParams->width  ) );
 
 		if ( _pixelColor == WHITE )
 		{
-			if ( pDisplayParams->flags & DISPLAY_FLAG_ROTATE_90 ) pDisplayParams->pFrameBuffer[_pixelPosn] |= ( 0x80 >> (_y & 0x07 ) );
+			if ( pDisplayParams->flags & DISPLAY_FLAG_BYTE_PIXELS_VERTICAL ) pDisplayParams->pFrameBuffer[_pixelPosn] |= ( 0x80 >> (_y & 0x07 ) );
 			else  pDisplayParams->pFrameBuffer[_pixelPosn] |= ( 0x01 << (_y & 0x07 ) );
 		}
 		else
 		{
-			if ( pDisplayParams->flags & DISPLAY_FLAG_ROTATE_90 ) pDisplayParams->pFrameBuffer[_pixelPosn] &= ~( 0x80 >> (_y & 0x07) );
+			if ( pDisplayParams->flags & DISPLAY_FLAG_BYTE_PIXELS_VERTICAL ) pDisplayParams->pFrameBuffer[_pixelPosn] &= ~( 0x80 >> (_y & 0x07) );
 			else  pDisplayParams->pFrameBuffer[_pixelPosn] &= ~( 0x01 << (_y & 0x07) );
 		}
 	}

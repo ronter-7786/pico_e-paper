@@ -21,7 +21,7 @@
 //			3 = turbo	 250 mS   ** leaves behind "ghosts" but an extra pre-write of all 1's helps
 //
 ///////////////////////////////////////////
-#if ( LUT_SPEED == 1 )
+#if ( LUT_SPEED_UC8151D == 1 )
 static const uint8_t	lutVCOM[] =
 	{
       0x00, 0x16, 0x16, 0x0d, 0x00, 0x01,
@@ -73,7 +73,7 @@ static const uint8_t	lutBB[] =
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
-#elif ( LUT_SPEED == 2 )
+#elif ( LUT_SPEED_UC8151D == 2 )
 static const uint8_t	lutVCOM[] =
 	{
       0x00, 0x04, 0x04, 0x07, 0x00, 0x01,
@@ -125,7 +125,7 @@ static const uint8_t	lutBB[] =
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
-#elif ( LUT_SPEED == 3 )
+#elif ( LUT_SPEED_UC8151D == 3 )
 static const uint8_t	lutVCOM[] =
 	{
       0x00, 0x01, 0x01, 0x02, 0x00, 0x01,
@@ -182,7 +182,7 @@ static const uint8_t	lutBB[] =
 static const UC8151D_CMD	uc8151dCommandInitSequence[] =
 					{
 						{.UC8151DCmd_code_data = UC8151DCMD, .UC8151DCmd_delay = 0, .UC8151DBusyWait = false, .UC8151DHoldCS = false, .UC8151DArgs = 1, .UC8151DCmd_value = UC8151D_CMD_PSR },
-#if ( LUT_SPEED == 0 )
+#if ( LUT_SPEED_UC8151D == 0 )
 							{.UC8151DCmd_code_data = UC8151DDATA, .UC8151DCmd_value = ( RES_128x296 | FORMAT_BW | BOOSTER_ON | LUT_OTP | RESET_NONE | SHIFT_RIGHT | SCAN_DOWN) },
 #else
 							{.UC8151DCmd_code_data = UC8151DDATA, .UC8151DCmd_value = ( RES_128x296 | FORMAT_BW | BOOSTER_ON | LUT_REG | RESET_NONE | SHIFT_RIGHT | SCAN_DOWN) },
@@ -300,6 +300,15 @@ DISPLAY_PARAMS	UC8151DDisplayParams =
 	.pColorMap = uc8151dColourTable,
 	.pFontDesc = &font_8x16_desc,
 	.magn = 1,
+#if LUT_SPEED_UC8151D == 0
+	.busyTime_ms = 4500,
+#elif LUT_SPEED_UC8151D == 1
+	.busyTime_ms = 2000,
+#elif LUT_SPEED_UC8151D == 2
+	.busyTime_ms = 800,
+#elif LUT_SPEED_UC8151D == 3
+	.busyTime_ms = 250,
+#endif
 	.height = UC8151D_LCDHEIGHT,
 	.width = UC8151D_LCDWIDTH,
 	.resetPin = UC8151D_RESET_PIN,
@@ -310,7 +319,7 @@ DISPLAY_PARAMS	UC8151DDisplayParams =
 	.spiSckPin = UC8151D_SCK_PIN,
 	.spiCsPin = UC8151D_CS_PIN,
 	.spiDcPin = UC8151D_DC_PIN,
-	.flags = DISPLAY_FLAG_ROTATE_90
+	.flags = DISPLAY_FLAG_BYTE_PIXELS_VERTICAL
 };
 
 
@@ -378,7 +387,7 @@ static bool uc8151d_refresh(void)
 
 	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
 
-#if ( LUT_SPEED == 3 )	
+#if ( LUT_SPEED_UC8151D == 3 )	
 	// since this refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
 	memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
