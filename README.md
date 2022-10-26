@@ -28,9 +28,9 @@ Select the demo mode...
 
 target_compile_definitions(pico_bike PRIVATE DEMO_MODE )
 
-Define the wheel circumference in mm...
+Define the wheel diameter in mm...
 
-target_compile_definitions(pico_bike PRIVATE WHEEL_CIRCUMFERENCE_MM=700 )
+target_compile_definitions(pico_bike PRIVATE WHEEL_DIAMETER_MM=700 )
 
 ## Examples
 The first example is a bike computer, pico-bike. It displays the speed, elapsed time, and distance travelled.
