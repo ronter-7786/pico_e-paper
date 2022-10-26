@@ -332,34 +332,36 @@ DISPLAY_PARAMS	UC8151DDisplayParams =
 
 static bool uc8151d_init(void)
 {
-	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[UC8151DDisplayParams.spiChannel];
+
+	// define the UC8151D BUSY pin as input, pulled up
+	gpio_init(UC8151DDisplayParams.busyPin);
+	gpio_set_dir(UC8151DDisplayParams.busyPin,false);	// input
+	gpio_pull_up(UC8151DDisplayParams.busyPin);			// pulled up
+
+	// define UC8151D D/C pin 
+	gpio_init(UC8151DDisplayParams.spiDcPin);			// dc...
+	gpio_set_dir(UC8151DDisplayParams.spiDcPin,true);	// output
+	gpio_put(UC8151DDisplayParams.spiDcPin,true);		// high
+
+	// define UC8151D Reset pin & activate for > 50 uS
+	gpio_init(UC8151DDisplayParams.resetPin);
+	gpio_set_dir(UC8151DDisplayParams.resetPin,true);	// output
+	gpio_put(UC8151DDisplayParams.resetPin,false);		// low
+	sleep_us( 100ULL );									// wait 100 uS
+	gpio_put(UC8151DDisplayParams.resetPin,true);		// high
+	sleep_us( 2000ULL );								// wait 2 mS
 
 	// set all gpios used by the spi driver
 	_pSpiChannel->gpio_cs_pin = UC8151DDisplayParams.spiCsPin;
-	_pSpiChannel->gpio_dc_pin = UC8151DDisplayParams.spiDcPin;
 	_pSpiChannel->gpio_tx_pin = UC8151DDisplayParams.spiMosiPin;
 	_pSpiChannel->gpio_rx_pin = UC8151DDisplayParams.spiMisoPin;
 	_pSpiChannel->gpio_sclk_pin = UC8151DDisplayParams.spiSckPin;
 	_pSpiChannel->spi_baud = UC8151D_SPI_BAUD;
 
 	// initialize the pio_spi if it isn't already, else just return false
-	if ( isInitialized_pio_spi(_spiIndex) ) return false;
-	init_pio_spi( _spiIndex );
-
-	// define the BUSY pin as input, pulled up
-	gpio_init(UC8151D_BUSY_PIN);
-	gpio_set_dir(UC8151D_BUSY_PIN,false);				// input
-	gpio_pull_up(UC8151D_BUSY_PIN);						// pulled up
-
-	// define UC8151D Reset pin & activate for > 50 uS
-	gpio_init(UC8151D_RESET_PIN);
-	gpio_set_dir(UC8151D_RESET_PIN,true);				// output
-	gpio_put(UC8151D_RESET_PIN,false);					// low
-	sleep_us( 100ULL );									// wait 100 uS
-	gpio_put(UC8151D_RESET_PIN,true);					// high
-	sleep_us( 2000ULL );								// wait 2 mS
-
+	if ( isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;
+	init_pio_spi( UC8151DDisplayParams.spiChannel );
 
 
 	return send_LCD_Message((UC8151D_CMD *)&uc8151dCommandInitSequence[0]);
@@ -371,9 +373,7 @@ static bool uc8151d_init(void)
 
 static bool uc8151d_power( bool _bPowerup  )
 {
-	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
-
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
+	if ( !isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;		// must be initialized!
 
 	return send_LCD_Message( _bPowerup ? (UC8151D_CMD *)&UC8151DCommandDisplayOn[0] : (UC8151D_CMD *)&UC8151DCommandDisplayOff[0] );
 }
@@ -385,37 +385,38 @@ static bool uc8151d_power( bool _bPowerup  )
 
 static bool uc8151d_refresh(void)
 {
-	 uint8_t		_spiIndex = UC8151DDisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[UC8151DDisplayParams.spiChannel];
 
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
+	if ( !isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;		// must be initialized!
 
-#if ( LUT_SPEED_UC8151D == 4 )	
-	// since turbo refresh mode is so fast ( ~250 ms ) there's time to whitewash the display 1st
-	memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
+#if ( LUT_SPEED_UC8151D == 4 )	// try to get rid of ghosts   who ya gonna call?
+	// ***TEST Instead of whitewashing, try just writing same framebuffer twice
+	// *******TEST****** memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
-	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
-	_pSpiChannel->txBuffer = junkBuffer;
+	gpio_put(UC8151DDisplayParams.spiDcPin,true);			//  dc high = DATA
+	_pSpiChannel->txBuffer = uc8151dFrameBuffer; // junkBuffer;					*******TEST********
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = UC8151D_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
-	start_pio_spi(_spiIndex);
+	start_pio_spi(UC8151DDisplayParams.spiChannel);
 	send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]);
+
 	// let this finish
 	uc8151d_busyWait();
-#endif
 
-	// send the frame buffer
+#endif
+	// send the command prefix
 	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
-	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
+	// send the frame buffer
+	gpio_put(UC8151DDisplayParams.spiDcPin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = uc8151dFrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = UC8151D_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
-	start_pio_spi(_spiIndex);
-	// send the suffix
+	start_pio_spi(UC8151DDisplayParams.spiChannel);
+	// send the command suffix
 	return (send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplaySuffix[0]));
 }	
 
@@ -425,10 +426,9 @@ static bool uc8151d_refresh(void)
 
 static bool uc8151d_busyWait(void)
 {
-	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
+	if ( !isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;		// must be initialized!
 
-	while ( gpio_get(UC8151D_BUSY_PIN) == 0 ) tight_loop_contents();
+	while ( gpio_get(UC8151DDisplayParams.busyPin) == 0 ) tight_loop_contents();
 }
 
 /////////////////////////////////////
@@ -437,11 +437,9 @@ static bool uc8151d_busyWait(void)
 
 static bool uc8151d_isBusy(void)
 {
-	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
+	if ( !isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;		// must be initialized!
 
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
-
-	return ( gpio_get(UC8151D_BUSY_PIN) == 0 );
+	return ( gpio_get(UC8151DDisplayParams.busyPin) == 0 );
 }
 
 
@@ -454,8 +452,7 @@ static bool uc8151d_isBusy(void)
 
 static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 {
-	uint8_t			_spiIndex = UC8151DDisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[UC8151DDisplayParams.spiChannel];
 
 	uint8_t			*_pArray;
 
@@ -470,7 +467,7 @@ static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 	_pSpiChannel->txBuffer = uc8151dCommandBuffer+1;
 	_pSpiChannel->rxBuffer = uc8151dCommandBuffer;
 
-	// do till end marker
+	// process the commands & data till end marker
 	while ( _bRc && ( (_pMsg->UC8151DCmd_code_data ) != UC8151DDONE ) )
 	{
 		// must 1st be a conmmand
@@ -480,15 +477,15 @@ static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 			_delay = _pMsg->UC8151DCmd_delay;		// remember the delay
 			_busyWait = _pMsg->UC8151DBusyWait;		// remember busy wait requirement
 			_holdCS = _pMsg->UC8151DHoldCS;			// remember hold CS
-
-			gpio_put(_pSpiChannel->gpio_dc_pin,false);	// dc low = command
+			// 1st send the command byte with D/C low
+			gpio_put(UC8151DDisplayParams.spiDcPin,false);	// dc low = command
 			_pSpiChannel->txBuffer[0] = _pMsg->UC8151DCmd_value;
 			_pSpiChannel->txBufferSize = 1;
 			_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 			_pSpiChannel->chipSelect = ( (_nArgs == 0) && !_holdCS ) ? SPI_CHIP_SELECT_BOTH : SPI_CHIP_SELECT_ASSERT;
-			start_pio_spi(_spiIndex);
+			start_pio_spi(UC8151DDisplayParams.spiChannel);
 
-
+			// now send individual data bytes or larger arrays
 			for ( _i = 0; _i < _nArgs; _i++ )
 			{
 				_pMsg++;
@@ -511,11 +508,11 @@ static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 
 			if ( _bRc )
 			{
-				gpio_put(_pSpiChannel->gpio_dc_pin,true);				//  dc high = DATA
+				gpio_put(UC8151DDisplayParams.spiDcPin,true);				//  dc high = DATA
 				_pSpiChannel->txBufferSize = _nArgs;
 				_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 				_pSpiChannel->chipSelect = _holdCS ? SPI_CHIP_SELECT_NONE : SPI_CHIP_SELECT_DEASSERT ;		
-				start_pio_spi(_spiIndex);									// start the spi transfer
+				start_pio_spi(UC8151DDisplayParams.spiChannel);				// start the spi transfer
 			}
 			
 			_pMsg++;
@@ -525,7 +522,7 @@ static bool	send_LCD_Message( UC8151D_CMD *_pMsg )
 			_bRc = false;
 		}
 
-		if ( _bRc && (_delay != 0 ) )		// fixed time delay ?
+		if ( _bRc && (_delay != 0 ) )			// fixed time delay ?
 		{
 			sleep_ms(_delay);
 		}

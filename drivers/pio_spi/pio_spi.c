@@ -33,7 +33,7 @@ static SPI_CHANNEL	spi0Channel =
 	.gpio_tx_pin = SPI0_TX_PIN,
 	.gpio_rx_pin = SPI0_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
-	.gpio_dc_pin = PICO_NO_PIN,
+	//.gpio_dc_pin = PICO_NO_PIN,
 	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
@@ -49,7 +49,7 @@ static SPI_CHANNEL	spi1Channel =
 	.gpio_tx_pin = SPI1_TX_PIN,
 	.gpio_rx_pin = SPI1_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
-	.gpio_dc_pin = PICO_NO_PIN,
+	//.gpio_dc_pin = PICO_NO_PIN,
 	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
@@ -98,13 +98,6 @@ bool init_pio_spi(uint8_t _channel_index )
 	gpio_set_dir(_channel_desc->gpio_cs_pin,true);			// output
 	gpio_put(_channel_desc->gpio_cs_pin,true);				// high
 
-	if ( _channel_desc->gpio_dc_pin != PICO_NO_PIN )
-	{
-		gpio_init(_channel_desc->gpio_dc_pin);				// spi dc...
-		gpio_set_dir(_channel_desc->gpio_dc_pin,true);		// output
-		gpio_put(_channel_desc->gpio_dc_pin,true);			// high
-	}
-
     _pio_spi->offset = pio_add_program(_pio_spi->pio, _pio_spi->pPIOprogram);
 
 	pio_spi_init ( _pio_spi->pio, _pio_spi->sm, _pio_spi->offset,
@@ -131,7 +124,6 @@ bool init_pio_spi(uint8_t _channel_index )
 	channel_config_set_dreq(&_channel_desc->dmaChanConfigMiso, pio_get_dreq(_channel_desc->spi_HW->pio, _channel_desc->spi_HW->sm, false) );
 
 	irq_add_shared_handler(DMA_IRQ_0, dma_isr0, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY);
-	//irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
 
     // start the PIO
 	pio_sm_set_enabled(_pio_spi->pio, _pio_spi->sm, true);
@@ -203,7 +195,6 @@ bool start_pio_spi(uint8_t _channel_index )
 	dma_channel_configure( _channel_desc->dmaChanNumMOSI, &_channel_desc->dmaChanConfigMosi, txfifo, (void *)_channel_desc->txBuffer, _channel_desc->rxBufferSize, false );
 	dma_channel_configure( _channel_desc->dmaChanNumMISO, &_channel_desc->dmaChanConfigMiso, (void *)_channel_desc->rxBuffer, rxfifo,  _channel_desc->rxBufferSize, false );
 	dma_channel_set_irq0_enabled( _channel_desc->dmaChanNumMISO, true);
-	//irq_set_exclusive_handler(DMA_IRQ_0, dma_isr0);
     irq_set_enabled(DMA_IRQ_0, true);
 
 	// see if we should assert CS before transfer

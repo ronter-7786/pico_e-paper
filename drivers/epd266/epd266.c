@@ -92,31 +92,13 @@ static uint8_t		epd266CommandBuffer[64];
 static uint8_t		epd266FrameBuffer[EPD266_FRAME_BUFFER_SIZE];
 static uint8_t		junkBuffer[EPD266_FRAME_BUFFER_SIZE];		// a dumpster for SPI Rx data or for pre white-wash cycle.  MISO hardware always writes 0s over it
 
-static uint16_t		epd266ColourTable[16] =
-{
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0xff
-};
-
+static uint16_t		epd266ColourTable[16] = { 	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0xff };
 
 
 //////////////////////////////
 // Local Function prototypes
 //////////////////////////////
+
 static bool epd266_init(void);
 static bool epd266_power( bool _bPowerup  );
 static bool epd266_busyWait(void);
@@ -152,12 +134,12 @@ DISPLAY_PARAMS	EPD266DisplayParams =
 	.height = EPD266_LCDHEIGHT,
 	.width = EPD266_LCDWIDTH,
 	.resetPin = EPD266_RESET_PIN,
+	.busyPin = EPD266_BUSY_PIN,
 	.spiChannel = EPD266_SPI_CHANNEL,
 	.spiMosiPin = EPD266_MOSI_PIN,
 	.spiMisoPin = EPD266_MISO_PIN,
 	.spiSckPin = EPD266_SCK_PIN,
 	.spiCsPin = EPD266_CS_PIN,
-	.busyPin = EPD266_BUSY_PIN,
 	.spiDcPin = EPD266_DC_PIN,
 	.flags = DISPLAY_FLAG_HEAD_OVER | DISPLAY_FLAG_BYTE_PIXELS_VERTICAL
 };
@@ -169,35 +151,39 @@ DISPLAY_PARAMS	EPD266DisplayParams =
 
 static bool epd266_init(void)
 {
-	 uint8_t		_spiIndex = EPD266DisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[EPD266DisplayParams.spiChannel];
+
+	// define EPD266 Reset pin 
+	gpio_init(EPD266DisplayParams.resetPin);			// reset...
+	gpio_set_dir(EPD266DisplayParams.resetPin,true);	// output
+	gpio_put(EPD266DisplayParams.resetPin,true);		// high
+
+	// define EPD266 Busy pin 
+	gpio_init(EPD266DisplayParams.busyPin);				// busy...   
+	gpio_set_dir(EPD266DisplayParams.busyPin,false);	// input
+	gpio_pull_up(EPD266DisplayParams.busyPin);			// pulled up
+
+	// define EPD266 D/C pin 
+	gpio_init(EPD266DisplayParams.spiDcPin);			// dc...
+	gpio_set_dir(EPD266DisplayParams.spiDcPin,true);	// output
+	gpio_put(EPD266DisplayParams.spiDcPin,true);		// high
+
+	// strobe the reset pin
+	gpio_put(EPD266DisplayParams.resetPin,false);		// low
+	sleep_us( 2000 );									// wait 2 ms
+	gpio_put(EPD266DisplayParams.resetPin,true);		// high
+	epd266_busyWait();
 
 	// set all gpios used by the spi driver
 	_pSpiChannel->gpio_cs_pin = EPD266DisplayParams.spiCsPin;
-	_pSpiChannel->gpio_dc_pin = EPD266DisplayParams.spiDcPin;
 	_pSpiChannel->gpio_tx_pin = EPD266DisplayParams.spiMosiPin;
 	_pSpiChannel->gpio_rx_pin = EPD266DisplayParams.spiMisoPin;
 	_pSpiChannel->gpio_sclk_pin = EPD266DisplayParams.spiSckPin;
 	_pSpiChannel->spi_baud = EPD266_SPI_BAUD;
 
 	// initialize the pio_spi if it isn't already, else just return false
-	if ( isInitialized_pio_spi(_spiIndex) ) return false;
-	init_pio_spi( _spiIndex );
-
-	// define EPD266 Reset pin & reset pin
-	gpio_init(EPD266_RESET_PIN);						// reset...
-	gpio_set_dir(EPD266_RESET_PIN,true);				// output
-	gpio_put(EPD266_RESET_PIN,true);					// high
-
-	gpio_init(EPD266_BUSY_PIN);							// busy...
-	gpio_set_dir(EPD266_BUSY_PIN,false);				// input
-	gpio_pull_up(EPD266_BUSY_PIN);						// pulled up
-
-	// strobe the reset pin
-	gpio_put(EPD266_RESET_PIN,false);					// low
-	sleep_us( 2000 );									// wait 2 ms
-	gpio_put(EPD266_RESET_PIN,true);					// high
-	epd266_busyWait();
+	if ( isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;
+	init_pio_spi( EPD266DisplayParams.spiChannel );
 
 	return send_LCD_Message((EPD266_CMD *)&epd266CommandInitSequence[0]);
 }
@@ -208,9 +194,7 @@ static bool epd266_init(void)
 
 static bool epd266_power( bool _bPowerup  )
 {
-	 uint8_t		_spiIndex = EPD266DisplayParams.spiChannel;
-
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
+	if ( !isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;		// must be initialized!
 
 	return send_LCD_Message( _bPowerup ? (EPD266_CMD *)&EPD266CommandDisplayOn[0] : (EPD266_CMD *)&EPD266CommandDisplayOff[0] );
 }
@@ -222,22 +206,21 @@ static bool epd266_power( bool _bPowerup  )
 
 static bool epd266_refresh(void)
 {
-	 uint8_t		_spiIndex = EPD266DisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[EPD266DisplayParams.spiChannel];
 
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
+	if ( !isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;		// must be initialized!
 
 #if LUT_SPEED_EPD266 == 2
 	// since this refresh mode is so fast there's time to whitewash the display 1st
 	memset ( junkBuffer, epd266ColourTable[WHITE], EPD266_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayBuffer[0]) ) return false;
-	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
+	gpio_put(EPD266DisplayParams.spiDcPin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = junkBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = EPD266_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
-	start_pio_spi(_spiIndex);
+	start_pio_spi(EPD266DisplayParams.spiChannel);
 	send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplay[0]);
 	// let this finish
 	epd266_busyWait();
@@ -245,13 +228,13 @@ static bool epd266_refresh(void)
 
 	// send the frame buffer
 	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayBuffer[0]) ) return false;
-	gpio_put(_pSpiChannel->gpio_dc_pin,true);			//  dc high = DATA
+	gpio_put(EPD266DisplayParams.spiDcPin,true);			//  dc high = DATA
 	_pSpiChannel->txBuffer = epd266FrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = EPD266_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 	_pSpiChannel->chipSelect = SPI_CHIP_SELECT_DEASSERT;
-	start_pio_spi(_spiIndex);
+	start_pio_spi(EPD266DisplayParams.spiChannel);
 	// send the suffix
 	return (send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplay[0]));
 }	
@@ -262,11 +245,9 @@ static bool epd266_refresh(void)
 
 static bool epd266_busyWait(void)
 {
-	uint8_t		_spiIndex = EPD266DisplayParams.spiChannel;
+	if ( !isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;		// must be initialized!
 
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
-
-	while ( gpio_get(EPD266_BUSY_PIN) == 1 ) tight_loop_contents();
+	while ( gpio_get(EPD266DisplayParams.busyPin) == 1 ) tight_loop_contents();
 }
 
 /////////////////////////////////////
@@ -275,11 +256,9 @@ static bool epd266_busyWait(void)
 
 static bool epd266_isBusy(void)
 {
-	uint8_t		_spiIndex = EPD266DisplayParams.spiChannel;
+	if ( !isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;		// must be initialized!
 
-	if ( !isInitialized_pio_spi(_spiIndex) ) return false;		// must be initialized!
-
-	return ( gpio_get(EPD266_BUSY_PIN) == 1 );
+	return ( gpio_get(EPD266DisplayParams.busyPin) == 1 );
 }
 
 
@@ -292,8 +271,7 @@ static bool epd266_isBusy(void)
 
 static bool	send_LCD_Message( EPD266_CMD *_pMsg )
 {
-	uint8_t			_spiIndex = EPD266DisplayParams.spiChannel;
-	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[_spiIndex];
+	SPI_CHANNEL		*_pSpiChannel = pSpiChannelDescript[EPD266DisplayParams.spiChannel];
 
 	uint8_t			*_pArray;
 
@@ -319,12 +297,12 @@ static bool	send_LCD_Message( EPD266_CMD *_pMsg )
 			_busyWait = _pMsg->EPD266BusyWait;		// remember busy wait requirement
 			_holdCS = _pMsg->EPD266HoldCS;			// remember hold CS
 
-			gpio_put(_pSpiChannel->gpio_dc_pin,false);	// dc low = command
+			gpio_put(EPD266DisplayParams.spiDcPin,false);	// dc low = command
 			_pSpiChannel->txBuffer[0] = _pMsg->EPD266Cmd_value;
 			_pSpiChannel->txBufferSize = 1;
 			_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 			_pSpiChannel->chipSelect = ( (_nArgs == 0) && !_holdCS ) ? SPI_CHIP_SELECT_BOTH : SPI_CHIP_SELECT_ASSERT;
-			start_pio_spi(_spiIndex);
+			start_pio_spi(EPD266DisplayParams.spiChannel);
 
 
 			for ( _i = 0; _i < _nArgs; _i++ )
@@ -349,11 +327,11 @@ static bool	send_LCD_Message( EPD266_CMD *_pMsg )
 
 			if ( _bRc )
 			{
-				gpio_put(_pSpiChannel->gpio_dc_pin,true);				//  dc high = DATA
+				gpio_put(EPD266DisplayParams.spiDcPin,true);				//  dc high = DATA
 				_pSpiChannel->txBufferSize = _nArgs;
 				_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
 				_pSpiChannel->chipSelect = _holdCS ? SPI_CHIP_SELECT_NONE : SPI_CHIP_SELECT_DEASSERT ;		
-				start_pio_spi(_spiIndex);									// start the spi transfer
+				start_pio_spi(EPD266DisplayParams.spiChannel);			 // start the spi transfer
 			}
 			
 			_pMsg++;

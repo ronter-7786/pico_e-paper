@@ -50,9 +50,7 @@ typedef struct
 	uint8_t				gpio_sclk_pin,		// SCK
 						gpio_tx_pin,		// MOSI
 						gpio_rx_pin,		// MISO
-						gpio_cs_pin,		// CS
-						gpio_dc_pin,		// D/C
-						gpio_busy_pin;		// Busy
+						gpio_cs_pin;		// CS
 	uint8_t				chipSelect;			// driver does chip selects, see below **
 	uint16_t			rxBufferSize,		// how much data to Rx
 						txBufferSize;		// how much data to Tx

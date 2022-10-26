@@ -41,6 +41,10 @@
 #include "epd266.h"
 #include "pixel_func.h"
 
+
+#ifndef WHEEL_DIAMETER_MM
+#define WHEEL_DIAMETER_MM		700
+#endif
 /////////////////////////////////
 // defines for  gpio pin numbers 
 /////////////////////////////////
@@ -54,6 +58,5 @@
 
 
 // global functions
-extern void gpioIrqCallback(uint _gpioNum, uint32_t _events);
 extern void __no_inline_not_in_flash_func(wait_for_reboot)(void);
 extern void	reboot_to_usb(void);
