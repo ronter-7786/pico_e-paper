@@ -37,3 +37,22 @@ The first example is a bike computer, pico-bike. It displays the speed, elapsed 
 Currently it's just a framework with no real sensor for bike movement, just a simulation that varies speed over a 1 hour trip.
 The program uses core 1 to refresh the display, while core 0 does the computation for speed via ( simulated ) wheel revolutions, and manages the display menus.
 
+### Making it real 
+By adding a Hall-Effect transistor sensor, and compiling without the target_compile_definitions(pico_bike PRIVATE DEMO_MODE ), the pico_bike demo can be used in the 'real world'.  
+
+The Hall Effect transistor is mounted to the frame with a piece of metal pipe strapping in red shrink tubing. I attached a magnet to a reflector on the spokes, and positioned the sensor to detect it.
+![Mounting the sensor](/assets/images/HallEffectSensor.jpg)
+
+I attached large pins to the pico, 
+![Pico with large pins](/assets/images/PicoPins.jpg)
+
+and made a small board to insert the pico + display. The board is zip-tied to the handle bars...
+![Mounting the carrier board](/assets/images/CarrierBoard.jpg)
+
+I'm powering it with a 9V battery and a switching supply. It was the only battery holder I had at the time, but did test it with 4 AA NiMh batteries.
+![Power supply](/assets/images/PowerSupply.jpg)
+
+After a test run, here's what the display shows...
+![Pico Display](/assets/images/PicoDisplay.jpg)
+
+
