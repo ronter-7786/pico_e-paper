@@ -22,6 +22,8 @@
 
 #define MULTICORE_FLAG						0xa55a
 
+#define NUM_AVG_SPEED						10
+
 
 typedef struct
 {
@@ -52,11 +54,14 @@ static semaphore_t		updateRequestSemaphore;				// semaphore to trigger update di
 static semaphore_t		wheelEventSemaphore;				// an event semaphore for every time the wheel does a revolution
 static WHEEL_EVENT		wheelEvent;							// timestamps
 
-static int64_t			_elapsedTime_us,					// elapsed time of trip
-						_elapsedTime_ms,
-						_elapsedTime_sec,
-						_elapsedTime_min,
-						_elapsedTime_hour;
+static int64_t			elapsedTime_us,						// elapsed time of trip
+						elapsedTime_ms,
+						elapsedTime_sec,
+						elapsedTime_min,
+						elapsedTime_hour;
+
+static double			fSpeedArray[NUM_AVG_SPEED];			// for calculating avg speed
+uint8_t					iSpeedIndex;
 
 static char				strSpeed[6];						// strings for the speed, distance & time
 static char				strDistance[16];
@@ -109,11 +114,10 @@ int main()
 	int64_t				_displayedElapsedTime_min = 99,
 						_displayedElapsedTime_sec = 66;
 
-	uint64_t			_iWheelRevTime_us;		// how long the wheel took for 1 rev
-
-	// set the wheel circumference in mm
-	double				_fWheelCircum_mm = WHEEL_DIAMETER_MM * M_PI;
-	double				_fWheel_mm_perSecond;	// calculated mm/sec speed
+	uint64_t			_iWheelRevTime_us;								// how long the wheel took for 1 rev
+	
+	double				_fWheelCircum_mm = WHEEL_DIAMETER_MM * M_PI;	// the wheel circumference in mm
+	double				_fWheel_mm_perSecond;							// calculated mm/sec speed
 
 	absolute_time_t		_start_time_us,
 						_current_time_us,
@@ -201,17 +205,17 @@ int main()
 		// get the elapsed time in uS, and calculate higher order units
 		_current_time_us  = get_absolute_time();
 
-		_elapsedTime_us = absolute_time_diff_us ( _start_time_us, _current_time_us );
-		if ( _elapsedTime_us != 0 )
+		elapsedTime_us = absolute_time_diff_us ( _start_time_us, _current_time_us );
+		if ( elapsedTime_us != 0 )
 		{
-			_elapsedTime_ms = _elapsedTime_us / 1000;
-			_elapsedTime_us = _elapsedTime_us % 1000;
-			_elapsedTime_sec = _elapsedTime_ms / 1000;
-			_elapsedTime_ms = _elapsedTime_ms % 1000;
-			_elapsedTime_min = _elapsedTime_sec / 60;
-			_elapsedTime_sec = _elapsedTime_sec % 60;
-			_elapsedTime_hour = _elapsedTime_min / 60;
-			_elapsedTime_min = _elapsedTime_min % 60;
+			elapsedTime_ms = elapsedTime_us / 1000;
+			elapsedTime_us = elapsedTime_us % 1000;
+			elapsedTime_sec = elapsedTime_ms / 1000;
+			elapsedTime_ms = elapsedTime_ms % 1000;
+			elapsedTime_min = elapsedTime_sec / 60;
+			elapsedTime_sec = elapsedTime_sec % 60;
+			elapsedTime_hour = elapsedTime_min / 60;
+			elapsedTime_min = elapsedTime_min % 60;
 		}
 
 		watchdog_update();							// keep the watchdog on-leash
@@ -237,7 +241,6 @@ int main()
 				if( _deltaTime >= (int64_t)3600000000LL ) 	// 60 minutes
 				{
 					cancel_repeating_timer( &_wheelRevTimerID );
-					_fSpeed = 0.0;
 				}
 				else 
 				{
@@ -265,8 +268,10 @@ int main()
 			if ( (!is_nil_time(wheelEvent.lastWheelRevTime)) && (!is_nil_time(wheelEvent.currentWheelRevTime)) )
 			{
 				_iWheelRevTime_us = absolute_time_diff_us ( wheelEvent.lastWheelRevTime, wheelEvent.currentWheelRevTime );
-				_fWheel_mm_perSecond = (_fWheelCircum_mm / _iWheelRevTime_us ) * 1000000.0f;
-				_fSpeed = ( _fWheel_mm_perSecond * 60.0f * 60.0f ) / ( 1000.0f * 1000.0f );		// km/h
+				_fWheel_mm_perSecond = ( _fWheelCircum_mm / _iWheelRevTime_us ) * 1000000.0f;
+
+				fSpeedArray[iSpeedIndex] = _fWheel_mm_perSecond;			// store the last NUM_AVG_SPEED speeds
+				if ( ++iSpeedIndex >= NUM_AVG_SPEED ) iSpeedIndex = 0;
 
 				_fDistance_mm += _fWheelCircum_mm ;	
 			}
@@ -277,10 +282,10 @@ int main()
 			if ( !is_nil_time(wheelEvent.lastWheelRevTime) )
 			{
 				_iWheelRevTime_us = absolute_time_diff_us ( wheelEvent.lastWheelRevTime, _current_time_us );
-				if ( _iWheelRevTime_us > (int64_t)5000000LL )
+				if ( _iWheelRevTime_us > (int64_t)10000000LL )
 				{
 					memset ( &wheelEvent, 0, sizeof(WHEEL_EVENT) );
-					_fSpeed = 0.0;
+					for ( uint8_t __i=0; __i < NUM_AVG_SPEED; __i++ ) fSpeedArray[__i] = 0.0f;
 					_displayWhat = DISPLAY_SUMMARY_SCREEN;
 				}
 			}
@@ -289,7 +294,24 @@ int main()
 		// see if time to update display
 		if ( sem_try_acquire( &updateRequestSemaphore ) )
 		{
-			_fDistance_km = _fDistance_mm / 1000000.0f;				// convert to human units
+			_fDistance_km = _fDistance_mm / 1000000.0f;				// convert mm to km
+
+			// calculate the average speed over NUM_AVG_SPEED samples
+			uint8_t		__i, __j;
+			_fSpeed = 0.0f;
+			for ( __i=0, __j=0; __i < NUM_AVG_SPEED; __i++ )
+			{
+				if ( fSpeedArray[__i] != 0.0f ) 
+				{
+					_fSpeed += fSpeedArray[__i];
+					__j++;
+				}
+			}
+			if ( __j != 0 ) 
+			{
+				_fSpeed = _fSpeed / __j;														// avg mm/s
+				_fSpeed = ( _fWheel_mm_perSecond * 60.0f * 60.0f ) / ( 1000.0f * 1000.0f );		// km/h
+			}
 
 			// Display the screen(s)
 			switch ( _displayWhat )
@@ -302,6 +324,8 @@ int main()
 				draw_string(pDisplayParams,(char *)strPico_bike, 0, 0, WHITE,BLACK);
 				mutex_exit(&frameBufferMutex);						// free the frame buffer
 				sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
+				sem_release(&displayRefreshRequestSemaphore);		// request another refresh by core1
+				sem_release(&displayRefreshRequestSemaphore);		// request yet another refresh by core1
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
@@ -311,13 +335,13 @@ int main()
 				break;
 
 			case DISPLAY_SUMMARY_SCREEN:
-				if ( ( (_fDistance_km - _fDisplayedDistance) >= 0.1f ) || ( _displayedElapsedTime_sec != _elapsedTime_sec )	)	// do we need to update display now?
+				if ( ( (_fDistance_km - _fDisplayedDistance) >= 0.1f ) || ( _displayedElapsedTime_sec != elapsedTime_sec )	)	// do we need to update display now?
 				{
 					mutex_enter_blocking(&frameBufferMutex);		// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 24 x 48 font
 					pDisplayParams->magn = 1;
-					sprintf(strTime, "%02lld:%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min, _elapsedTime_sec );
+					sprintf(strTime, "%02lld:%02lld:%02lld", elapsedTime_hour, elapsedTime_min, elapsedTime_sec );
 					draw_string(pDisplayParams,strTime, 0, 0, WHITE,BLACK);
 					sprintf(strDistance, "%-4.1f", _fDistance_km );
 					draw_string(pDisplayParams,strDistance, 0, 64, WHITE,BLACK);
@@ -326,7 +350,7 @@ int main()
 					draw_string(pDisplayParams,(char *)strKm, (strlen(strDistance) * font_7seg_24x48_desc.Width) + 8 , 64 + font_7seg_24x48_desc.Height - font_8x16_desc.Height - 16, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);						// free the frame buffer
 					sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
-					_displayedElapsedTime_sec = _elapsedTime_sec;
+					_displayedElapsedTime_sec = elapsedTime_sec;
 					_fDisplayedDistance = _fDistance_km;
 				}
 
@@ -344,8 +368,8 @@ int main()
 				break;
 
 			case DISPLAY_CURRENT_SPEED:
-				if ( round(_fDisplayedSpeed) != round(_fSpeed) )		// has speed changed?
-				{
+				//if ( round(_fDisplayedSpeed) != round(_fSpeed) )		// has speed changed?
+				//{
 					mutex_enter_blocking(&frameBufferMutex);			// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 48 x 96 font
@@ -358,7 +382,7 @@ int main()
 					mutex_exit(&frameBufferMutex);						// free the frame buffer
 					sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
 					_fDisplayedSpeed = _fSpeed;							// update last displayed speed
-				}
+				//}
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
@@ -384,8 +408,8 @@ int main()
 				break;
 
 			case DISPLAY_TOTAL_DISTANCE_SCREEN:		// display total distance
-				if (  fabs( _fDistance_km - _fDisplayedDistance ) >= .1 )
-				{
+				//if (  fabs( _fDistance_km - _fDisplayedDistance ) >= .1 )
+				//{
 					mutex_enter_blocking(&frameBufferMutex);					// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;			// 48 x 96 font
@@ -399,7 +423,7 @@ int main()
 					sem_release(&displayRefreshRequestSemaphore);				// request a refresh by core1
 					sem_release(&displayRefreshRequestSemaphore);				// request another refresh by core1
 					_fDisplayedDistance = _fDistance_km;						// update last displayed distance
-				}
+				//}
 
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
@@ -415,22 +439,22 @@ int main()
 				break;
 
 			case DISPLAY_ELAPSED_TIME_SCREEN:							// display elapsed time
-				if (  _displayedElapsedTime_min != _elapsedTime_min )	// do we need to update display now?
-				{
+				//if (  _displayedElapsedTime_min != elapsedTime_min )	// do we need to update display now?
+				//{
 					mutex_enter_blocking(&frameBufferMutex);			// lock the frame buffer
 					clear_frameBuffer(pDisplayParams,WHITE);		
 					pDisplayParams->pFontDesc = &font_7seg_24x48_desc;	// 48 x 96 font
 					pDisplayParams->magn = 2;
-					sprintf(strTime, "%02lld:%02lld", _elapsedTime_hour, _elapsedTime_min );
+					sprintf(strTime, "%02lld:%02lld", elapsedTime_hour, elapsedTime_min );
 					draw_string(pDisplayParams,strTime, 0, 0, WHITE,BLACK);
 					mutex_exit(&frameBufferMutex);						// free the frame buffer
 					sem_release(&displayRefreshRequestSemaphore);		// request a refresh by core1
 					sem_release(&displayRefreshRequestSemaphore);		// request another refresh by core1
-					_displayedElapsedTime_min = _elapsedTime_min;
-				}
+					_displayedElapsedTime_min = elapsedTime_min;
+				//}
 				// set alarm for what/when to display next
 				if ( _alarmID != -1 ) cancel_alarm(_alarmID);
-				_alarmID = add_alarm_in_ms(   (pDisplayParams->busyTime_ms > 2000)? pDisplayParams->busyTime_ms : 2000, alarm_callback, NULL, true );  // update in 2 seconds
+				_alarmID = add_alarm_in_ms(   (pDisplayParams->busyTime_ms > 5000)? pDisplayParams->busyTime_ms : 5000, alarm_callback, NULL, true );  // update in 5 seconds
 				_deltaTime = absolute_time_diff_us ( _last_display_update_time, _current_time_us );
 				if ( _deltaTime >= (int64_t)15000000LL )				// has this been displayed for 15 seconds?
 				{

@@ -211,11 +211,9 @@ static bool epd266_refresh(void)
 	if ( !isInitialized_pio_spi(EPD266DisplayParams.spiChannel) ) return false;		// must be initialized!
 
 #if LUT_SPEED_EPD266 == 2
-	// since this refresh mode is so fast there's time to whitewash the display 1st
-	memset ( junkBuffer, epd266ColourTable[WHITE], EPD266_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((EPD266_CMD *)&EPD266CommandRefreshDisplayBuffer[0]) ) return false;
 	gpio_put(EPD266DisplayParams.spiDcPin,true);			//  dc high = DATA
-	_pSpiChannel->txBuffer = junkBuffer;
+	_pSpiChannel->txBuffer = epd266FrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = EPD266_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;

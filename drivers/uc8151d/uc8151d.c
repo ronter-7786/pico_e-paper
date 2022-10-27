@@ -390,11 +390,9 @@ static bool uc8151d_refresh(void)
 	if ( !isInitialized_pio_spi(UC8151DDisplayParams.spiChannel) ) return false;		// must be initialized!
 
 #if ( LUT_SPEED_UC8151D == 4 )	// try to get rid of ghosts   who ya gonna call?
-	// ***TEST Instead of whitewashing, try just writing same framebuffer twice
-	// *******TEST****** memset ( junkBuffer, uc8151dColourTable[WHITE], UC8151D_FRAME_BUFFER_SIZE );
 	if ( !send_LCD_Message((UC8151D_CMD *)&UC8151DCommandRefreshDisplayPrefix[0]) ) return false;
 	gpio_put(UC8151DDisplayParams.spiDcPin,true);			//  dc high = DATA
-	_pSpiChannel->txBuffer = uc8151dFrameBuffer; // junkBuffer;					*******TEST********
+	_pSpiChannel->txBuffer = uc8151dFrameBuffer;
 	_pSpiChannel->rxBuffer = junkBuffer; 
 	_pSpiChannel->txBufferSize = UC8151D_FRAME_BUFFER_SIZE;
 	_pSpiChannel->rxBufferSize = _pSpiChannel->txBufferSize;
