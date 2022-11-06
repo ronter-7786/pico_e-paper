@@ -2,6 +2,7 @@
 
 add_executable(pico_bike )
 
+pico_generate_pio_header(pico_bike ${CMAKE_CURRENT_LIST_DIR}/../../drivers/pio_spi/spi.pio)
 target_sources ( pico_bike PRIVATE
   pico_bike.c
 )

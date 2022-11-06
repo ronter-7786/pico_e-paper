@@ -309,8 +309,8 @@ int main()
 			}
 			if ( __j != 0 ) 
 			{
-				_fSpeed = _fSpeed / __j;														// avg mm/s
-				_fSpeed = ( _fWheel_mm_perSecond * 60.0f * 60.0f ) / ( 1000.0f * 1000.0f );		// km/h
+				_fSpeed = _fSpeed / __j;			// avg mm/s
+				_fSpeed =  _fSpeed * 0.0036f;		// km/h
 			}
 
 			// Display the screen(s)

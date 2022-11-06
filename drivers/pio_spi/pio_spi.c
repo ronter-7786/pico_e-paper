@@ -33,8 +33,6 @@ static SPI_CHANNEL	spi0Channel =
 	.gpio_tx_pin = SPI0_TX_PIN,
 	.gpio_rx_pin = SPI0_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
-	//.gpio_dc_pin = PICO_NO_PIN,
-	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
 // PIO-SPI channel 1 uses pio 0 sm 1  dma channels 2 & 3
@@ -49,8 +47,6 @@ static SPI_CHANNEL	spi1Channel =
 	.gpio_tx_pin = SPI1_TX_PIN,
 	.gpio_rx_pin = SPI1_RX_PIN,
 	.gpio_cs_pin = PICO_NO_PIN,
-	//.gpio_dc_pin = PICO_NO_PIN,
-	//.gpio_busy_pin = PICO_NO_PIN,
 };
 
 // indicates whether or not a pio-spi channel has been initialized
